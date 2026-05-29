@@ -1,0 +1,317 @@
+/* =============================================
+   DAISY - Global Styles
+   ============================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=Jost:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---- CSS Variables ---- */
+:root {
+  --daisy-primary: #c4855a;
+  --daisy-secondary: #b76e79;
+  --daisy-cream: #faf7f2;
+  --daisy-nude: #f5ede8;
+  --daisy-gold: #c9a96e;
+  --daisy-dark: #2c1810;
+  --font-heading: 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'Jost', sans-serif;
+  --font-accent: 'Playfair Display', serif;
+}
+
+/* ---- Base ---- */
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: #ffffff;
+  color: #2c1810;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Dark Mode ---- */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background-color: #1a0f0a;
+  color: #faf7f2;
+}
+
+/* Background overrides */
+.dark .bg-white,
+.dark .bg-cream,
+.dark .bg-rose-50,
+.dark .bg-nude-50,
+.dark .bg-amber-50\/50,
+.dark header,
+.dark footer,
+.dark .product-card,
+.dark .mega-menu,
+.dark .bg-rose-pale,
+.dark main,
+.dark .mobile-nav,
+.dark .bg-zinc-50,
+.dark .bg-gray-50 {
+  background-color: #1f110b !important;
+}
+
+.dark .bg-stone-100,
+.dark .bg-gray-100,
+.dark .bg-nude-100 {
+  background-color: #2e1b12 !important;
+}
+
+/* Text color overrides */
+.dark .text-daisy-900,
+.dark .text-daisy-800,
+.dark .text-daisy-700,
+.dark .text-daisy-600,
+.dark .text-slate-900,
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-neutral-900,
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark p,
+.dark span:not(.bg-daisy-600):not(.bg-rose-gold):not(.bg-amber-600):not(.text-white) {
+  color: #f7ede6 !important;
+}
+
+.dark .text-daisy-500,
+.dark .text-daisy-400,
+.dark .text-gray-500,
+.dark .text-gray-400 {
+  color: #cbb4a6 !important;
+}
+
+/* Link and Button colors */
+.dark header a, 
+.dark header button, 
+.dark header nav a,
+.dark footer a,
+.dark footer p,
+.dark .mobile-nav a,
+.dark .mobile-nav button {
+  color: #f7ede6 !important;
+}
+
+.dark header a:hover,
+.dark header nav a:hover,
+.dark .mobile-nav a:hover {
+  color: #c4855a !important;
+}
+
+/* Border overrides */
+.dark .border-nude-200,
+.dark .border-nude-100,
+.dark .border-gray-200,
+.dark .border-daisy-100,
+.dark border {
+  border-color: rgba(196, 133, 90, 0.15) !important;
+}
+
+/* Input overrides */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #2c1a12 !important;
+  color: #f7ede6 !important;
+  border-color: #4a2c1d !important;
+}
+
+.dark input::placeholder {
+  color: rgba(203, 180, 166, 0.5) !important;
+}
+
+/* ---- Typography ---- */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  line-height: 1.2;
+}
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #faf7f2; }
+::-webkit-scrollbar-thumb { background: #c4855a; border-radius: 3px; }
+
+/* ---- Selection ---- */
+::selection { background: #f3dece; color: #2c1810; }
+
+/* ---- Utility Classes ---- */
+@layer components {
+  /* Luxury Button */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-8 py-3.5 
+           bg-daisy-800 text-cream font-body font-medium tracking-widest 
+           uppercase text-xs transition-all duration-300 
+           hover:bg-daisy-700 hover:shadow-luxury active:scale-95;
+  }
+  
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 px-8 py-3.5 
+           border border-daisy-800 text-daisy-800 font-body font-medium 
+           tracking-widest uppercase text-xs transition-all duration-300 
+           hover:bg-daisy-800 hover:text-cream active:scale-95;
+  }
+
+  .btn-whatsapp {
+    @apply inline-flex items-center justify-center gap-2 px-8 py-3.5
+           bg-[#25D366] text-white font-body font-medium tracking-widest
+           uppercase text-xs transition-all duration-300
+           hover:bg-[#20b858] active:scale-95;
+  }
+
+  /* Luxury Heading */
+  .heading-luxury {
+    @apply font-heading font-light tracking-wide;
+  }
+  
+  /* Section Title */
+  .section-title {
+    @apply font-heading text-3xl md:text-5xl font-light text-daisy-900 leading-tight;
+  }
+  
+  .section-subtitle {
+    @apply font-body text-sm tracking-[0.3em] uppercase text-daisy-500 mb-3;
+  }
+
+  /* Product Card */
+  .product-card {
+    @apply relative bg-white overflow-hidden transition-all duration-500;
+  }
+  
+  .product-card:hover .product-image {
+    @apply scale-105;
+  }
+
+  /* Input luxury style */
+  .input-luxury {
+    @apply w-full border-b border-nude-200 bg-transparent py-3 px-0 
+           font-body text-daisy-900 placeholder-daisy-400/60 
+           outline-none transition-colors duration-300
+           focus:border-daisy-500;
+  }
+
+  /* Announcement bar */
+  .marquee-container {
+    @apply overflow-hidden whitespace-nowrap;
+  }
+  
+  /* Skeleton loading */
+  .skeleton {
+    @apply animate-pulse bg-gradient-to-r from-nude-100 via-nude-200 to-nude-100 
+           bg-[length:200%_100%] animate-shimmer;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-block px-3 py-1 text-[10px] font-body font-medium 
+           tracking-widest uppercase;
+  }
+
+  .badge-sale {
+    @apply badge bg-rose-gold text-white;
+  }
+
+  .badge-new {
+    @apply badge bg-daisy-800 text-cream;
+  }
+
+  .badge-bestseller {
+    @apply badge bg-daisy-600 text-white;
+  }
+}
+
+/* ---- Swiper Custom Styles ---- */
+.swiper-pagination-bullet {
+  background: #c4855a !important;
+  opacity: 0.4 !important;
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.swiper-pagination-bullet-active {
+  opacity: 1 !important;
+  width: 24px !important;
+  border-radius: 3px !important;
+  transition: width 0.3s ease !important;
+}
+
+/* ---- WhatsApp Float Button ---- */
+.whatsapp-float {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  z-index: 50;
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ---- Mobile Bottom Navigation ---- */
+.mobile-nav {
+  @apply fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-nude-200 
+         flex items-center justify-around py-3 px-4 md:hidden;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
+}
+
+/* ---- Mega Menu ---- */
+.mega-menu {
+  @apply absolute top-full left-0 right-0 bg-white shadow-hover 
+         border-t border-nude-200 z-50;
+  animation: slideDown 0.3s ease-out;
+}
+
+/* ---- Loading Spinner ---- */
+.spinner {
+  @apply inline-block w-5 h-5 border-2 border-current border-t-transparent 
+         rounded-full animate-spin;
+}
+
+/* ---- Toast Notification Overrides ---- */
+.Toastify__toast {
+  font-family: var(--font-body) !important;
+  font-size: 14px !important;
+}
+
+/* ---- Image hover zoom ---- */
+.img-zoom {
+  overflow: hidden;
+}
+.img-zoom img {
+  transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.img-zoom:hover img {
+  transform: scale(1.08);
+}
+
+/* ---- Floating label ---- */
+.float-label {
+  position: relative;
+}
+.float-label input:focus + label,
+.float-label input:not(:placeholder-shown) + label {
+  transform: translateY(-20px);
+  font-size: 11px;
+  color: var(--daisy-primary);
+}
+.float-label label {
+  position: absolute;
+  left: 0;
+  top: 12px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
