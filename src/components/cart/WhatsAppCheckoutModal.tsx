@@ -437,6 +437,27 @@ export default function WhatsAppCheckoutModal() {
   const handleWhatsAppCheckout = async () => {
     setLoading(true);
     try {
+      // Ensure the user exists in public.users to prevent foreign key violations
+      if (user) {
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (!userProfile) {
+          const { error: profileError } = await supabase
+            .from('users')
+            .insert({
+              id: user.id,
+              full_name: addressForm.fullName || `Customer ${addressForm.phone || user.phone || ''}`,
+              phone: addressForm.phone || user.phone || '',
+              role: 'customer'
+            });
+          if (profileError) console.error('Error ensuring user profile:', profileError);
+        }
+      }
+
       const finalAddress = { ...addressForm };
 
       // Save new address if user is logged in and requested

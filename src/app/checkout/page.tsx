@@ -105,8 +105,30 @@ export default function CheckoutPage() {
     if (!validate()) return;
     setPlacing(true);
 
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Ensure the user exists in public.users to prevent foreign key violations
+    if (user) {
+      const { data: userProfile } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!userProfile) {
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert({
+            id: user.id,
+            full_name: address.full_name || `Customer ${address.phone || ''}`,
+            phone: address.phone || '',
+            role: 'customer'
+          });
+        if (profileError) console.error('Error ensuring user profile:', profileError);
+      }
+    }
+
     if (paymentMethod === 'whatsapp') {
-      const { data: { user } } = await supabase.auth.getUser();
       const year = new Date().getFullYear();
       const seq = String(Date.now()).slice(-4);
       const orderId = `DSY-${year}-${seq}`;
@@ -235,7 +257,6 @@ export default function CheckoutPage() {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
     const orderNum = `DAISY${Date.now().toString().slice(-8)}`;
     const { data: order, error } = await supabase.from('orders').insert([{
       user_id: user?.id || null, order_number: orderNum, status: 'pending',
