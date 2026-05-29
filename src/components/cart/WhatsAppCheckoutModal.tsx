@@ -81,12 +81,12 @@ export default function WhatsAppCheckoutModal() {
   });
 
   const INDIAN_STATES = [
-    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 
-    'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 
-    'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 
-    'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 
-    'Uttarakhand', 'West Bengal', 'Andaman and Nicobar Islands', 'Chandigarh', 
-    'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Jammu and Kashmir', 
+    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat',
+    'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh',
+    'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab',
+    'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh',
+    'Uttarakhand', 'West Bengal', 'Andaman and Nicobar Islands', 'Chandigarh',
+    'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Jammu and Kashmir',
     'Ladakh', 'Lakshadweep', 'Puducherry'
   ];
 
@@ -238,7 +238,7 @@ export default function WhatsAppCheckoutModal() {
       if (error) {
         // Catch "unsupported provider" errors to gracefully trigger fallback
         if (
-          error.message.includes('Unsupported phone provider') || 
+          error.message.includes('Unsupported phone provider') ||
           error.message.includes('phone_provider_disabled') ||
           error.message.includes('Provider phone is not enabled')
         ) {
@@ -336,7 +336,7 @@ export default function WhatsAppCheckoutModal() {
         if (error) throw error;
 
         toast.success('Mobile verified successfully! 👑');
-        
+
         // Update custom profiles table so phone is saved nicely
         if (data?.user) {
           await supabase
@@ -505,7 +505,7 @@ export default function WhatsAppCheckoutModal() {
           price: item.price,
           total: item.price * item.quantity,
         }));
-        
+
         const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
         if (itemsError) console.error('Error inserting order items:', itemsError);
       }

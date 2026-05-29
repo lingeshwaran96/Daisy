@@ -144,7 +144,7 @@ export function detectMobile(): boolean {
   const isSamsungInternet = isSamsung;
   const isIPhoneSafari = isSafari;
   const isMobileFirefox = (isAndroid || isIPhone) && isFirefox;
-  
+
   // Generic mobile fallback
   const isGenericMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
 
@@ -176,7 +176,7 @@ export function generateCartWhatsAppURL(
     // Extract size & color from variant string if possible
     let sizeText = item.size || 'N/A';
     let colorText = item.color || 'N/A';
-    
+
     if (item.variant && (sizeText === 'N/A' || colorText === 'N/A')) {
       const parts = item.variant.split(',');
       parts.forEach(part => {
@@ -190,84 +190,28 @@ export function generateCartWhatsAppURL(
       });
     }
 
-    const prodUrl = item.productUrl || `${domain}/product/${item.productId}`;
-
     return `${idx + 1}. *${item.name}*
-   Product ID: ${item.productId}
-   SKU: ${item.sku || 'DSY-' + item.name.substring(0, 3).toUpperCase() + '-001'}
    Variant: ${item.variant || 'Default'}
-   Size: ${sizeText}
-   Color: ${colorText}
    Qty: ${item.quantity}
-   Price: ₹${item.price.toLocaleString('en-IN')}
-   Total: ₹${(item.price * item.quantity).toLocaleString('en-IN')}
-   Product Link: ${prodUrl}
-   ${item.image ? `Product Image: ${item.image}` : ''}`;
-  }).join('\n\n');
+   Price: ₹${item.price.toLocaleString('en-IN')}`
+  }).join('\n');
 
-  const shippingLine = totals.shippingCharge > 0 ? `\nShipping Charge: ₹${totals.shippingCharge.toLocaleString('en-IN')}` : '';
-  const discountLine = totals.discount > 0 ? `\nDiscount: -₹${totals.discount.toLocaleString('en-IN')}` : '';
+  const message = `🌸 *NEW DAISY ORDER*
 
-  const fullMessage = `🌸 *DAISY ORDER*
+*Order:* ${orderId}
+*Customer:* ${customer.fullName}
+*Phone:* ${customer.phone}
 
-*Order ID:* ${orderId}
-
-*Customer:*
-Name: ${customer.fullName}
-Phone: ${customer.phone}
-Email: ${customer.email || 'N/A'}
-
-*Products:*
-
+*Items:*
 ${itemsText}
 
-*Delivery Address:*
-${customer.addressLine1}
-${customer.addressLine2 ? customer.addressLine2 : ''}
-${customer.landmark ? `Landmark: ${customer.landmark}` : ''}
-${customer.city}
-${customer.state}
-${customer.pincode}
-${customer.country}
-
-*Order Total:*
-Subtotal: ₹${totals.subtotal.toLocaleString('en-IN')}${shippingLine}${discountLine}
-*Grand Total: ₹${totals.grandTotal.toLocaleString('en-IN')}*
-
-*Payment Method:* ${totals.paymentMethod}
-*Payment Status:* ${totals.paymentStatus}
-
-━━━━━━━━━━━━━━━━━━━━
-🔗 *View Full Order:*
-${domain}/orders/${orderId}
-━━━━━━━━━━━━━━━━━━━━
-
-_Our team will confirm your order shortly!_ 🌸`;
-
-  // Encode message to see if it exceeds limit
-  const encodedFull = encodeURIComponent(fullMessage);
-  const fullUrl = `https://wa.me/${waNumber}?text=${encodedFull}`;
-
-  // Safe limit is ~1800 encoded characters to prevent browser crashes/truncations
-  if (encodedFull.length > 1800) {
-    const shortMessage = `🌸 *DAISY ORDER SUMMARY*
-
-*Order ID:* ${orderId}
-*Customer Name:* ${customer.fullName}
 *Grand Total:* ₹${totals.grandTotal.toLocaleString('en-IN')}
 
-━━━━━━━━━━━━━━━━━━━━
-🔗 *View Full Order Details & Images:*
-${domain}/orders/${orderId}
-━━━━━━━━━━━━━━━━━━━━
+📦 *Full Details, Images & Address:*
+${domain}/orders/${orderId}`;
 
-_Please click the link above to view your full order details. Our team will verify your payment shortly!_ 🌸`;
-
-    const encodedShort = encodeURIComponent(shortMessage);
-    return `https://wa.me/${waNumber}?text=${encodedShort}`;
-  }
-
-  return fullUrl;
+  const encoded = encodeURIComponent(message);
+  return `https://wa.me/${waNumber}?text=${encoded}`;
 }
 
 export type WhatsAppOrderDetails = {
@@ -287,7 +231,7 @@ export type WhatsAppOrderDetails = {
  */
 export function generateWhatsAppOrderURL(details: WhatsAppOrderDetails, address?: CustomerAddress, phoneNumber?: string): string {
   const domain = typeof window !== 'undefined' ? window.location.origin : 'https://daisyshop.in';
-  
+
   const item: WhatsAppCartItem = {
     productId: details.productId || 'unknown',
     name: details.productName,
@@ -342,10 +286,10 @@ export function openWhatsApp(url: string, showToastError: boolean = true): Promi
     }
 
     const isMobile = detectMobile();
-    
+
     let waUrl = url;
     let fallbackUrl = url;
-    
+
     // Parse wa.me parameters to convert to api.whatsapp.com fallback if needed
     if (url.includes('wa.me/')) {
       const match = url.match(/wa\.me\/([^?]+)\?text=(.+)/);
@@ -358,25 +302,25 @@ export function openWhatsApp(url: string, showToastError: boolean = true): Promi
     }
 
     let success = false;
-    
+
     if (isMobile) {
       const start = Date.now();
-      
+
       const blurHandler = () => {
         success = true;
         window.removeEventListener('blur', blurHandler);
       };
-      
+
       window.addEventListener('blur', blurHandler);
       window.location.href = waUrl;
-      
+
       // Check after 1.5 seconds if the browser lost focus (meaning WhatsApp opened)
       setTimeout(() => {
         window.removeEventListener('blur', blurHandler);
         if (!success) {
           // If wa.me failed to open, try fallback URL
           window.location.href = fallbackUrl;
-          
+
           setTimeout(() => {
             // If we are still focused after 3.5s total, WhatsApp did not open at all
             if (Date.now() - start < 3500) {

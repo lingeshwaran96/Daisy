@@ -28,9 +28,9 @@ const PAYMENT_METHODS = [
   { id: 'whatsapp', label: 'WhatsApp Order', desc: 'Order via WhatsApp & pay manually', Icon: MessageCircle },
 ];
 
-const STATES = ['Andhra Pradesh','Assam','Bihar','Chhattisgarh','Delhi','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal'];
+const STATES = ['Andhra Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'];
 
-const EMPTY: Address = { full_name:'', phone:'', address_line1:'', address_line2:'', city:'', state:'Tamil Nadu', pincode:'', country:'India' };
+const EMPTY: Address = { full_name: '', phone: '', address_line1: '', address_line2: '', city: '', state: 'Tamil Nadu', pincode: '', country: 'India' };
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -92,8 +92,8 @@ export default function CheckoutPage() {
   };
 
   const validate = () => {
-    for (const k of ['full_name','phone','address_line1','city','state','pincode'] as (keyof Address)[]) {
-      if (!address[k]) { toast.error(`Please fill in ${k.replace(/_/g,' ')}`); return false; }
+    for (const k of ['full_name', 'phone', 'address_line1', 'city', 'state', 'pincode'] as (keyof Address)[]) {
+      if (!address[k]) { toast.error(`Please fill in ${k.replace(/_/g, ' ')}`); return false; }
     }
     if (address.phone.length !== 10) { toast.error('Enter valid 10-digit phone'); return false; }
     if (address.pincode.length !== 6) { toast.error('Enter valid 6-digit pincode'); return false; }
@@ -113,15 +113,15 @@ export default function CheckoutPage() {
 
       // 1. Insert into confirmed orders table
       const { data: order, error } = await supabase.from('orders').insert([{
-        user_id: user?.id || null, 
-        order_number: orderId, 
+        user_id: user?.id || null,
+        order_number: orderId,
         status: 'pending',
-        payment_method: 'whatsapp', 
+        payment_method: 'whatsapp',
         payment_status: 'pending',
-        subtotal, 
-        shipping_fee: shipping, 
+        subtotal,
+        shipping_fee: shipping,
         total,
-        coupon_code: coupon || null, 
+        coupon_code: coupon || null,
         shipping_address: address,
         notes: 'Checkout Page WhatsApp order'
       }]).select().single();
@@ -135,15 +135,15 @@ export default function CheckoutPage() {
 
       // 2. Insert order items
       await supabase.from('order_items').insert(
-        items.map(i => ({ 
-          order_id: order.id, 
-          product_id: i.productId, 
-          product_name: i.name, 
-          product_image: i.image, 
-          variant: i.variant, 
-          quantity: i.quantity, 
-          price: i.price, 
-          total: i.price * i.quantity 
+        items.map(i => ({
+          order_id: order.id,
+          product_id: i.productId,
+          product_name: i.name,
+          product_image: i.image,
+          variant: i.variant,
+          quantity: i.quantity,
+          price: i.price,
+          total: i.price * i.quantity
         }))
       );
 
@@ -179,11 +179,11 @@ export default function CheckoutPage() {
 
       // 4. Save new address to profile
       if (userId && showNew) {
-        await supabase.from('addresses').insert([{ 
-          user_id: userId, 
-          ...address, 
-          address_line2: address.address_line2 || null, 
-          is_default: saved.length === 0 
+        await supabase.from('addresses').insert([{
+          user_id: userId,
+          ...address,
+          address_line2: address.address_line2 || null,
+          is_default: saved.length === 0
         }]);
       }
 
@@ -340,7 +340,7 @@ export default function CheckoutPage() {
                     ))}
                     <label className={`flex items-center gap-3 p-4 border cursor-pointer transition-all ${showNew ? 'border-daisy-700 bg-daisy-50' : 'border-nude-200'}`}>
                       <input type="radio" name="addr" checked={showNew} onChange={() => { setShowNew(true); setSelectedId(null); setAddress(EMPTY); }} className="accent-daisy-700" />
-                      <span className="flex items-center gap-2 font-body text-sm text-daisy-700"><Plus size={14}/> Add a new address</span>
+                      <span className="flex items-center gap-2 font-body text-sm text-daisy-700"><Plus size={14} /> Add a new address</span>
                     </label>
                   </div>
                 </section>
@@ -350,16 +350,16 @@ export default function CheckoutPage() {
                 <section className="bg-white border border-nude-200 p-6">
                   <h2 className="font-heading text-xl text-daisy-800 mb-6">Delivery Address</h2>
                   <div className="grid grid-cols-2 gap-4">
-                    {[{k:'full_name',l:'Full Name',c:2,t:'text',p:'Your full name'},{k:'phone',l:'Phone',c:1,t:'tel',p:'10-digit number'},{k:'pincode',l:'Pincode',c:1,t:'text',p:'6-digit pincode'},{k:'address_line1',l:'Address Line 1',c:2,t:'text',p:'House no, street'},{k:'address_line2',l:'Address Line 2 (Optional)',c:2,t:'text',p:'Landmark, area'},{k:'city',l:'City',c:1,t:'text',p:'City'}].map(({k,l,c,t,p})=>(
-                      <div key={k} className={c===2?'col-span-2':''}>
+                    {[{ k: 'full_name', l: 'Full Name', c: 2, t: 'text', p: 'Your full name' }, { k: 'phone', l: 'Phone', c: 1, t: 'tel', p: '10-digit number' }, { k: 'pincode', l: 'Pincode', c: 1, t: 'text', p: '6-digit pincode' }, { k: 'address_line1', l: 'Address Line 1', c: 2, t: 'text', p: 'House no, street' }, { k: 'address_line2', l: 'Address Line 2 (Optional)', c: 2, t: 'text', p: 'Landmark, area' }, { k: 'city', l: 'City', c: 1, t: 'text', p: 'City' }].map(({ k, l, c, t, p }) => (
+                      <div key={k} className={c === 2 ? 'col-span-2' : ''}>
                         <label className="block font-body text-[10px] tracking-widest uppercase text-daisy-500 mb-2">{l}</label>
-                        <input type={t} placeholder={p} value={(address as any)[k]} onChange={set(k as keyof Address)} className="w-full border border-nude-200 px-4 py-3 font-body text-sm outline-none focus:border-daisy-400 transition-colors"/>
+                        <input type={t} placeholder={p} value={(address as any)[k]} onChange={set(k as keyof Address)} className="w-full border border-nude-200 px-4 py-3 font-body text-sm outline-none focus:border-daisy-400 transition-colors" />
                       </div>
                     ))}
                     <div>
                       <label className="block font-body text-[10px] tracking-widest uppercase text-daisy-500 mb-2">State</label>
                       <select value={address.state} onChange={set('state')} className="w-full border border-nude-200 px-4 py-3 font-body text-sm outline-none focus:border-daisy-400 bg-white">
-                        {STATES.map(s=><option key={s}>{s}</option>)}
+                        {STATES.map(s => <option key={s}>{s}</option>)}
                       </select>
                     </div>
                   </div>
@@ -369,16 +369,16 @@ export default function CheckoutPage() {
               <section className="bg-white border border-nude-200 p-6">
                 <h2 className="font-heading text-xl text-daisy-800 mb-6">Payment Method</h2>
                 <div className="space-y-3">
-                  {PAYMENT_METHODS.map(({id,label,desc,Icon})=>(
-                    <label key={id} className={`flex items-center gap-4 p-4 border cursor-pointer transition-all ${paymentMethod===id?'border-daisy-700 bg-daisy-50':'border-nude-200 hover:border-nude-300'}`}>
-                      <input type="radio" name="payment" value={id} checked={paymentMethod===id} onChange={()=>setPaymentMethod(id)} className="accent-daisy-700 w-4 h-4"/>
-                      <Icon size={20} className={paymentMethod===id?'text-daisy-700':'text-daisy-400'}/>
+                  {PAYMENT_METHODS.map(({ id, label, desc, Icon }) => (
+                    <label key={id} className={`flex items-center gap-4 p-4 border cursor-pointer transition-all ${paymentMethod === id ? 'border-daisy-700 bg-daisy-50' : 'border-nude-200 hover:border-nude-300'}`}>
+                      <input type="radio" name="payment" value={id} checked={paymentMethod === id} onChange={() => setPaymentMethod(id)} className="accent-daisy-700 w-4 h-4" />
+                      <Icon size={20} className={paymentMethod === id ? 'text-daisy-700' : 'text-daisy-400'} />
                       <div><p className="font-body text-sm font-medium text-daisy-900">{label}</p><p className="font-body text-xs text-daisy-400">{desc}</p></div>
                     </label>
                   ))}
                 </div>
-                {paymentMethod==='upi_manual'&&(
-                  <motion.div initial={{opacity:0,height:0}} animate={{opacity:1,height:'auto'}} className="mt-4 p-4 bg-amber-50 border border-amber-200">
+                {paymentMethod === 'upi_manual' && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-4 p-4 bg-amber-50 border border-amber-200">
                     <p className="font-body text-sm text-amber-800 font-medium mb-1">How it works:</p>
                     <ol className="font-body text-xs text-amber-700 space-y-1 list-decimal list-inside">
                       <li>Place your order below</li><li>Admin shares UPI ID / QR via WhatsApp</li>
@@ -393,29 +393,29 @@ export default function CheckoutPage() {
               <div className="bg-white border border-nude-200 p-6 sticky top-24">
                 <h2 className="font-heading text-xl text-daisy-800 mb-6">Order Summary</h2>
                 <div className="space-y-3 mb-6 max-h-48 overflow-y-auto">
-                  {items.map(item=>(
+                  {items.map(item => (
                     <div key={item.id} className="flex justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-body text-sm text-daisy-900 truncate">{item.name}</p>
-                        {item.variant&&<p className="font-body text-xs text-daisy-400">{item.variant}</p>}
+                        {item.variant && <p className="font-body text-xs text-daisy-400">{item.variant}</p>}
                         <p className="font-body text-xs text-daisy-400">×{item.quantity}</p>
                       </div>
-                      <span className="font-body text-sm text-daisy-900 shrink-0">₹{(item.price*item.quantity).toLocaleString('en-IN')}</span>
+                      <span className="font-body text-sm text-daisy-900 shrink-0">₹{(item.price * item.quantity).toLocaleString('en-IN')}</span>
                     </div>
                   ))}
                 </div>
                 <div className="flex gap-2 mb-6">
-                  <input type="text" placeholder="Coupon code" value={coupon} onChange={e=>setCoupon(e.target.value.toUpperCase())} className="flex-1 border border-nude-200 px-3 py-2.5 font-body text-sm outline-none focus:border-daisy-400 uppercase"/>
+                  <input type="text" placeholder="Coupon code" value={coupon} onChange={e => setCoupon(e.target.value.toUpperCase())} className="flex-1 border border-nude-200 px-3 py-2.5 font-body text-sm outline-none focus:border-daisy-400 uppercase" />
                   <button onClick={applyCoupon} className="btn-outline text-xs py-2.5 px-4">Apply</button>
                 </div>
                 <div className="space-y-3 border-t border-nude-200 pt-4 mb-6">
                   <div className="flex justify-between font-body text-sm text-daisy-600"><span>Subtotal</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div>
-                  {discount>0&&<div className="flex justify-between font-body text-sm text-green-600"><span>Discount</span><span>-₹{discount.toLocaleString('en-IN')}</span></div>}
-                  {shippingEnabled&&<div className="flex justify-between font-body text-sm text-daisy-600"><span>Shipping</span><span>{shipping===0?<span className="text-green-600">FREE</span>:`₹${shipping}`}</span></div>}
+                  {discount > 0 && <div className="flex justify-between font-body text-sm text-green-600"><span>Discount</span><span>-₹{discount.toLocaleString('en-IN')}</span></div>}
+                  {shippingEnabled && <div className="flex justify-between font-body text-sm text-daisy-600"><span>Shipping</span><span>{shipping === 0 ? <span className="text-green-600">FREE</span> : `₹${shipping}`}</span></div>}
                   <div className="flex justify-between font-heading text-xl text-daisy-900 pt-3 border-t border-nude-200"><span>Total</span><span>₹{total.toLocaleString('en-IN')}</span></div>
                 </div>
-                <button onClick={placeOrder} disabled={placing} className={`w-full flex items-center justify-center gap-2 py-4 font-body text-sm tracking-widest uppercase font-medium transition-all disabled:opacity-60 ${paymentMethod==='whatsapp'?'btn-whatsapp':'btn-primary'}`}>
-                  {placing?<Loader2 size={16} className="animate-spin"/>:paymentMethod==='whatsapp'?<><MessageCircle size={16}/>Order via WhatsApp</>:<><ChevronRight size={16}/>Place Order</>}
+                <button onClick={placeOrder} disabled={placing} className={`w-full flex items-center justify-center gap-2 py-4 font-body text-sm tracking-widest uppercase font-medium transition-all disabled:opacity-60 ${paymentMethod === 'whatsapp' ? 'btn-whatsapp' : 'btn-primary'}`}>
+                  {placing ? <Loader2 size={16} className="animate-spin" /> : paymentMethod === 'whatsapp' ? <><MessageCircle size={16} />Order via WhatsApp</> : <><ChevronRight size={16} />Place Order</>}
                 </button>
                 <p className="font-body text-xs text-daisy-400 text-center mt-4">🔒 Your data is secure & encrypted</p>
               </div>
