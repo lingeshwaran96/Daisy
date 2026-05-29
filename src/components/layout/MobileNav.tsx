@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Grid, Heart, ShoppingBag, User } from 'lucide-react';
+import { Home, Grid, Heart, ShoppingBag, User, Sun, Moon } from 'lucide-react';
 import { useStore } from '@/lib/store';
 
 const NAV = [
@@ -16,7 +16,7 @@ const NAV = [
 
 export default function MobileNav() {
   const pathname = usePathname();
-  const { setCartOpen, items } = useStore();
+  const { setCartOpen, items, darkMode, toggleDarkMode } = useStore();
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
 
   return (
@@ -27,25 +27,27 @@ export default function MobileNav() {
           <button
             key={label}
             onClick={() => cart ? setCartOpen(true) : undefined}
-            className={`relative flex flex-col items-center gap-1 flex-1 ${isActive ? 'text-daisy-700' : 'text-daisy-400'}`}
+            className={`relative flex flex-col items-center gap-1 flex-1 transition-colors duration-250 ${
+              isActive ? 'text-daisy-700 dark:text-cream' : 'text-daisy-400 hover:text-daisy-600'
+            }`}
             aria-label={label}
           >
             {cart ? (
               <>
                 <div className="relative">
-                  <Icon size={22} />
+                  <Icon size={22} className="stroke-[1.5]" />
                   {totalItems > 0 && (
                     <span className="absolute -top-2 -right-2 w-4 h-4 bg-daisy-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                       {totalItems > 9 ? '9+' : totalItems}
                     </span>
                   )}
                 </div>
-                <span className="font-body text-[10px]">{label}</span>
+                <span className="font-body text-[10px] tracking-wide">{label}</span>
               </>
             ) : (
               <Link href={href} className="flex flex-col items-center gap-1 w-full">
-                <Icon size={22} />
-                <span className="font-body text-[10px]">{label}</span>
+                <Icon size={22} className="stroke-[1.5]" />
+                <span className="font-body text-[10px] tracking-wide">{label}</span>
               </Link>
             )}
             {isActive && (
@@ -54,6 +56,20 @@ export default function MobileNav() {
           </button>
         );
       })}
+
+      {/* Theme Switcher in mobile navigation */}
+      <button
+        onClick={toggleDarkMode}
+        className="relative flex flex-col items-center gap-1 flex-1 text-daisy-400 hover:text-daisy-600 transition-colors"
+        aria-label="Toggle Theme"
+      >
+        {darkMode ? (
+          <Sun size={22} className="text-amber-500 fill-amber-100 dark:fill-amber-950/20 stroke-[1.5]" />
+        ) : (
+          <Moon size={22} className="text-daisy-800 stroke-[1.5]" />
+        )}
+        <span className="font-body text-[10px] tracking-wide">{darkMode ? 'Light' : 'Dark'}</span>
+      </button>
     </nav>
   );
 }

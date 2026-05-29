@@ -14,7 +14,7 @@ import CartSidebar from '@/components/cart/CartSidebar';
 import SearchOverlay from '@/components/layout/SearchOverlay';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
-import { generateCartWhatsAppURL, openWhatsApp } from '@/lib/whatsapp';
+import { generateCartWhatsAppURL, openWhatsApp, getShippingSettings } from '@/lib/whatsapp';
 
 type Address = {
   full_name: string; phone: string; address_line1: string;
@@ -44,14 +44,23 @@ export default function CheckoutPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [shippingFeeSetting, setShippingFeeSetting] = useState(99);
+  const [freeThresholdSetting, setFreeThresholdSetting] = useState(1000);
+  const [shippingEnabled, setShippingEnabled] = useState(true);
 
   const subtotal = totalPrice();
-  const shipping = subtotal >= 1000 ? 0 : 99;
+  const shipping = !shippingEnabled ? 0 : (shippingFeeSetting === 0 || subtotal >= freeThresholdSetting ? 0 : shippingFeeSetting);
   const total = subtotal - discount + shipping;
   const set = (k: keyof Address) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setAddress(a => ({ ...a, [k]: e.target.value }));
 
   useEffect(() => {
+    getShippingSettings().then(settings => {
+      setShippingFeeSetting(settings.shippingFee);
+      setFreeThresholdSetting(settings.freeShippingThreshold);
+      setShippingEnabled(settings.shippingFeeEnabled);
+    });
+
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
       setUserId(user.id);
@@ -97,8 +106,133 @@ export default function CheckoutPage() {
     setPlacing(true);
 
     if (paymentMethod === 'whatsapp') {
-      openWhatsApp(generateCartWhatsAppURL(items.map(i => ({ name: i.name, price: i.price, quantity: i.quantity, variant: i.variant, image: i.image || null })), total));
-      setPlacing(false); return;
+      const { data: { user } } = await supabase.auth.getUser();
+      const year = new Date().getFullYear();
+      const seq = String(Date.now()).slice(-4);
+      const orderId = `DSY-${year}-${seq}`;
+
+      // 1. Insert into confirmed orders table
+      const { data: order, error } = await supabase.from('orders').insert([{
+        user_id: user?.id || null, 
+        order_number: orderId, 
+        status: 'pending',
+        payment_method: 'whatsapp', 
+        payment_status: 'pending',
+        subtotal, 
+        shipping_fee: shipping, 
+        total,
+        coupon_code: coupon || null, 
+        shipping_address: address,
+        notes: 'Checkout Page WhatsApp order'
+      }]).select().single();
+
+      if (error || !order) {
+        console.error('Error placing WhatsApp order:', error);
+        toast.error(error?.message || 'Failed to place order. Please try again.');
+        setPlacing(false);
+        return;
+      }
+
+      // 2. Insert order items
+      await supabase.from('order_items').insert(
+        items.map(i => ({ 
+          order_id: order.id, 
+          product_id: i.productId, 
+          product_name: i.name, 
+          product_image: i.image, 
+          variant: i.variant, 
+          quantity: i.quantity, 
+          price: i.price, 
+          total: i.price * i.quantity 
+        }))
+      );
+
+      // 3. Save to temp_orders as well for Admin Payment Verification panel
+      const itemsPayload = items.map((item) => ({
+        productId: item.productId,
+        name: item.name,
+        image: item.image || null,
+        variant: item.variant || null,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+
+      await supabase.from('temp_orders').insert({
+        user_id: user?.id || null,
+        temp_order_number: orderId,
+        status: 'pending_verification',
+        subtotal,
+        shipping_fee: shipping,
+        total,
+        shipping_address: {
+          fullName: address.full_name,
+          phone: address.phone,
+          addressLine1: address.address_line1,
+          addressLine2: address.address_line2 || null,
+          city: address.city,
+          state: address.state,
+          pincode: address.pincode
+        },
+        items: itemsPayload,
+        confirmed_order_number: orderId
+      });
+
+      // 4. Save new address to profile
+      if (userId && showNew) {
+        await supabase.from('addresses').insert([{ 
+          user_id: userId, 
+          ...address, 
+          address_line2: address.address_line2 || null, 
+          is_default: saved.length === 0 
+        }]);
+      }
+
+      // 5. Generate WhatsApp URL
+      const customerDetails = {
+        fullName: address.full_name,
+        phone: address.phone,
+        email: user?.email || 'N/A',
+        addressLine1: address.address_line1,
+        addressLine2: address.address_line2 || null,
+        city: address.city,
+        state: address.state,
+        pincode: address.pincode,
+        country: address.country || 'India'
+      };
+
+      const enrichedItems = items.map(item => ({
+        productId: item.productId,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        variant: item.variant || null,
+        image: item.image || null
+      }));
+
+      const waUrl = generateCartWhatsAppURL(
+        enrichedItems,
+        {
+          subtotal,
+          shippingCharge: shipping,
+          discount: discount,
+          grandTotal: total,
+          paymentMethod: 'whatsapp',
+          paymentStatus: 'pending'
+        },
+        customerDetails,
+        orderId
+      );
+
+      const redirectSuccess = await openWhatsApp(waUrl, false);
+      if (redirectSuccess) {
+        clearCart();
+        toast.success(`Order ${orderId} initiated on WhatsApp! 🌸`);
+        router.push(`/orders/${orderId}`);
+      } else {
+        toast.error("Unable to open WhatsApp. Please install WhatsApp or contact support.");
+      }
+      setPlacing(false);
+      return;
     }
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -277,7 +411,7 @@ export default function CheckoutPage() {
                 <div className="space-y-3 border-t border-nude-200 pt-4 mb-6">
                   <div className="flex justify-between font-body text-sm text-daisy-600"><span>Subtotal</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div>
                   {discount>0&&<div className="flex justify-between font-body text-sm text-green-600"><span>Discount</span><span>-₹{discount.toLocaleString('en-IN')}</span></div>}
-                  <div className="flex justify-between font-body text-sm text-daisy-600"><span>Shipping</span><span>{shipping===0?<span className="text-green-600">FREE</span>:`₹${shipping}`}</span></div>
+                  {shippingEnabled&&<div className="flex justify-between font-body text-sm text-daisy-600"><span>Shipping</span><span>{shipping===0?<span className="text-green-600">FREE</span>:`₹${shipping}`}</span></div>}
                   <div className="flex justify-between font-heading text-xl text-daisy-900 pt-3 border-t border-nude-200"><span>Total</span><span>₹{total.toLocaleString('en-IN')}</span></div>
                 </div>
                 <button onClick={placeOrder} disabled={placing} className={`w-full flex items-center justify-center gap-2 py-4 font-body text-sm tracking-widest uppercase font-medium transition-all disabled:opacity-60 ${paymentMethod==='whatsapp'?'btn-whatsapp':'btn-primary'}`}>

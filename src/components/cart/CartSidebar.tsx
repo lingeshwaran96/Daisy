@@ -7,14 +7,19 @@ import Image from 'next/image';
 import { X, Plus, Minus, ShoppingBag, MessageCircle } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
+import { getShippingSettings } from '@/lib/whatsapp';
 import WhatsAppCheckoutModal from './WhatsAppCheckoutModal';
 
 export default function CartSidebar() {
   const { cartOpen, setCartOpen, items, removeItem, updateQty, totalPrice, openWhatsAppModal } = useStore();
   const [checkoutEnabled, setCheckoutEnabled] = useState(true);
+  const [shippingFee, setShippingFee] = useState(99);
+  const [freeThreshold, setFreeThreshold] = useState(1000);
+  const [shippingEnabled, setShippingEnabled] = useState(true);
 
   const total = totalPrice();
-  const freeShippingLeft = Math.max(0, 1000 - total);
+  const freeShippingLeft = Math.max(0, freeThreshold - total);
+  const currentShippingFee = !shippingEnabled ? 0 : (shippingFee === 0 || total >= freeThreshold ? 0 : shippingFee);
 
   useEffect(() => {
     supabase
@@ -29,6 +34,12 @@ export default function CartSidebar() {
           setCheckoutEnabled(true);
         }
       });
+
+    getShippingSettings().then(settings => {
+      setShippingFee(settings.shippingFee);
+      setFreeThreshold(settings.freeShippingThreshold);
+      setShippingEnabled(settings.shippingFeeEnabled);
+    });
   }, [cartOpen]);
 
   const handleWhatsAppOrder = () => {
@@ -73,7 +84,11 @@ export default function CartSidebar() {
             </div>
 
             {/* Free Shipping Progress */}
-            {freeShippingLeft > 0 ? (
+            {shippingFee === 0 ? (
+              <div className="px-6 py-3 bg-green-50 border-b border-green-100">
+                <p className="font-body text-xs text-green-700 font-medium">🎉 Enjoy FREE shipping on all orders!</p>
+              </div>
+            ) : freeShippingLeft > 0 ? (
               <div className="px-6 py-3 bg-nude-100 border-b border-nude-200">
                 <p className="font-body text-xs text-daisy-700 mb-2">
                   Add <strong>₹{freeShippingLeft.toLocaleString('en-IN')}</strong> more for FREE shipping
@@ -81,7 +96,7 @@ export default function CartSidebar() {
                 <div className="h-1 bg-nude-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-daisy-600 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (total / 1000) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (total / freeThreshold) * 100)}%` }}
                   />
                 </div>
               </div>
@@ -169,9 +184,17 @@ export default function CartSidebar() {
                   <span>Subtotal</span>
                   <span>₹{total.toLocaleString('en-IN')}</span>
                 </div>
+                {shippingEnabled && (
+                  <div className="flex justify-between font-body text-sm text-daisy-600">
+                    <span>Shipping Fee</span>
+                    <span className={currentShippingFee === 0 ? "text-green-600 font-medium" : ""}>
+                      {currentShippingFee === 0 ? 'FREE' : `₹${currentShippingFee}`}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between font-heading text-xl text-daisy-900">
                   <span>Total</span>
-                  <span>₹{(total + (freeShippingLeft > 0 ? 99 : 0)).toLocaleString('en-IN')}</span>
+                  <span>₹{(total + currentShippingFee).toLocaleString('en-IN')}</span>
                 </div>
 
                 {checkoutEnabled && (

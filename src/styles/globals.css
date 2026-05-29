@@ -254,10 +254,22 @@ h1, h2, h3, h4, h5, h6 {
 /* ---- WhatsApp Float Button ---- */
 .whatsapp-float {
   position: fixed;
-  bottom: 80px;
+  bottom: 24px;
   right: 20px;
   z-index: 50;
   animation: float 3s ease-in-out infinite;
+}
+
+/* Push WhatsApp float above mobile bottom nav bar */
+@media (max-width: 767px) {
+  .whatsapp-float {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
 }
 
 /* ---- Mobile Bottom Navigation ---- */
@@ -265,6 +277,7 @@ h1, h2, h3, h4, h5, h6 {
   @apply fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-nude-200 
          flex items-center justify-around py-3 px-4 md:hidden;
   box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* ---- Mega Menu ---- */

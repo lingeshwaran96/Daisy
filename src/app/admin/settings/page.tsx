@@ -104,6 +104,12 @@ export default function AdminSettingsPage() {
   const [editingAnnouncementIdx, setEditingAnnouncementIdx] = useState<number | null>(null);
   const [savingAnnouncements, setSavingAnnouncements] = useState(false);
 
+  // Shipping Settings State
+  const [shippingFee, setShippingFee] = useState('99');
+  const [freeThreshold, setFreeThreshold] = useState('1000');
+  const [shippingEnabled, setShippingEnabled] = useState(true);
+  const [savingShipping, setSavingShipping] = useState(false);
+
   const fileInput1Ref = useRef<HTMLInputElement>(null);
   const fileInput2Ref = useRef<HTMLInputElement>(null);
 
@@ -138,6 +144,15 @@ export default function AdminSettingsPage() {
         } else {
           setPrimaryWhatsapp(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '919876543210');
         }
+
+        const shippingFeeRow = data.find(r => r.key === 'shipping_fee');
+        if (shippingFeeRow) setShippingFee(shippingFeeRow.value);
+
+        const freeThresholdRow = data.find(r => r.key === 'free_shipping_threshold');
+        if (freeThresholdRow) setFreeThreshold(freeThresholdRow.value);
+
+        const shippingEnabledRow = data.find(r => r.key === 'shipping_fee_enabled');
+        if (shippingEnabledRow) setShippingEnabled(shippingEnabledRow.value !== 'false');
 
         // Announcement Row
         const announcementRow = data.find(r => r.key === 'announcement_text');
@@ -291,6 +306,31 @@ export default function AdminSettingsPage() {
       toast.error('Failed to save story settings: ' + err.message);
     } finally {
       setSavingStory(false);
+    }
+  };
+
+  // Save shipping settings to database
+  const saveShippingSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingShipping(true);
+    try {
+      const payload = [
+        { key: 'shipping_fee', value: shippingFee },
+        { key: 'free_shipping_threshold', value: freeThreshold },
+        { key: 'shipping_fee_enabled', value: shippingEnabled ? 'true' : 'false' }
+      ];
+
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert(payload, { onConflict: 'key' });
+
+      if (error) throw error;
+      toast.success('Shipping settings saved successfully! 🚚');
+    } catch (err: any) {
+      console.error('Error saving shipping settings:', err);
+      toast.error('Failed to save shipping settings: ' + err.message);
+    } finally {
+      setSavingShipping(false);
     }
   };
 
@@ -600,6 +640,76 @@ export default function AdminSettingsPage() {
                 />
               </button>
             </div>
+          </section>
+
+          <section className="bg-white border border-nude-200 p-6 shadow-sm">
+            <h2 className="font-heading text-xl text-daisy-800 mb-2">Shipping & Delivery Settings</h2>
+            <p className="font-body text-xs text-daisy-400 mb-6 font-light">Manage default shipping fees and threshold limits. Set shipping fee to 0 to make it free by default.</p>
+
+            <form onSubmit={saveShippingSettings} className="space-y-4">
+              <div className="border border-nude-200 p-5 rounded-sm flex items-center justify-between bg-nude-50/30">
+                <div className="max-w-[75%] pr-4">
+                  <h3 className="font-body text-sm font-semibold text-daisy-900">Enable Shipping Fee</h3>
+                  <p className="font-body text-xs text-daisy-500 mt-1 leading-relaxed">
+                    Turn on to calculate and display the shipping fee on customer bills (including cart, checkout, and WhatsApp summary details). Turn off to make shipping free and hide the fee line from all bills.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShippingEnabled(!shippingEnabled)}
+                  className={`w-14 h-8 rounded-full transition-colors flex items-center p-1 cursor-pointer relative focus:outline-none ${shippingEnabled ? 'bg-daisy-800 justify-end' : 'bg-nude-200 justify-start'
+                    }`}
+                >
+                  <motion.div
+                    layout
+                    className="w-6 h-6 bg-cream rounded-full shadow-sm"
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-body text-xs tracking-wider uppercase text-daisy-500 mb-2">Shipping Fee (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="99"
+                    value={shippingFee}
+                    onChange={(e) => setShippingFee(e.target.value)}
+                    className="w-full border border-nude-200 px-4 py-3 font-body text-sm outline-none focus:border-daisy-400 bg-white"
+                    min="0"
+                  />
+                </div>
+                <div>
+                  <label className="block font-body text-xs tracking-wider uppercase text-daisy-500 mb-2">Free Shipping Threshold (₹)</label>
+                  <input
+                    type="number"
+                    placeholder="1000"
+                    value={freeThreshold}
+                    onChange={(e) => setFreeThreshold(e.target.value)}
+                    className="w-full border border-nude-200 px-4 py-3 font-body text-sm outline-none focus:border-daisy-400 bg-white"
+                    min="0"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={savingShipping}
+                  className="btn-primary py-3 px-6 font-body text-xs font-semibold tracking-widest uppercase flex items-center gap-2"
+                >
+                  {savingShipping ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Saving Settings...
+                    </>
+                  ) : (
+                    'Save Shipping Settings'
+                  )}
+                </button>
+              </div>
+            </form>
           </section>
 
           <section className="bg-white border border-nude-200 p-6 shadow-sm">

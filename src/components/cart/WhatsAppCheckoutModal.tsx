@@ -2,11 +2,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, MessageCircle, Mail, Phone, ShieldCheck, MapPin, Plus, Loader2, BookOpen } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
-import { generateCartWhatsAppURL, openWhatsApp, getActiveWhatsAppNumber } from '@/lib/whatsapp';
+import { generateCartWhatsAppURL, openWhatsApp, getActiveWhatsAppNumber, getShippingSettings } from '@/lib/whatsapp';
 import toast from 'react-hot-toast';
 
 // Supported country codes for the premium selector
@@ -32,6 +33,7 @@ async function sha256(message: string): Promise<string> {
 }
 
 export default function WhatsAppCheckoutModal() {
+  const router = useRouter();
   const {
     whatsAppModalOpen,
     whatsAppOrderItems,
@@ -43,6 +45,9 @@ export default function WhatsAppCheckoutModal() {
   const [step, setStep] = useState<'auth' | 'address' | 'summary'>('auth');
   const [user, setUser] = useState<any>(null);
   const [activeWaNumber, setActiveWaNumber] = useState<string>('');
+  const [shippingFeeSetting, setShippingFeeSetting] = useState(99);
+  const [freeThresholdSetting, setFreeThresholdSetting] = useState(1000);
+  const [shippingEnabled, setShippingEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Production Phone Auth States
@@ -94,10 +99,15 @@ export default function WhatsAppCheckoutModal() {
     return () => clearInterval(interval);
   }, [countdown]);
 
-  // Fetch active WhatsApp number on modal open & reset auth variables
+  // Fetch active WhatsApp number & shipping settings on modal open & reset auth variables
   useEffect(() => {
     if (whatsAppModalOpen) {
       getActiveWhatsAppNumber().then(setActiveWaNumber);
+      getShippingSettings().then(settings => {
+        setShippingFeeSetting(settings.shippingFee);
+        setFreeThresholdSetting(settings.freeShippingThreshold);
+        setShippingEnabled(settings.shippingFeeEnabled);
+      });
       setOtpDigits(['', '', '', '', '', '']);
       setOtpSent(false);
       setCountdown(0);
@@ -445,13 +455,62 @@ export default function WhatsAppCheckoutModal() {
         if (addrError) console.error('Error saving address:', addrError);
       }
 
-      // Generate a temporary order number
+      // Generate a unique order number in format DSY-YYYY-NNNN
       const now = new Date();
       const year = now.getFullYear();
       const seq = String(Date.now()).slice(-4);
-      const tempOrderNumber = `DSY-TEMP-${year}-${seq}`;
+      const orderId = `DSY-${year}-${seq}`;
 
-      // Save to temp_orders table (NOT to confirmed orders)
+      const shippingFee = !shippingEnabled ? 0 : (shippingFeeSetting === 0 || whatsAppTotal >= freeThresholdSetting ? 0 : shippingFeeSetting);
+      const grandTotal = whatsAppTotal + shippingFee;
+
+      // 1. Insert into confirmed orders table
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: user?.id || null,
+          order_number: orderId,
+          status: 'pending',
+          payment_method: 'whatsapp',
+          payment_status: 'pending',
+          subtotal: whatsAppTotal,
+          shipping_fee: shippingFee,
+          total: grandTotal,
+          shipping_address: {
+            full_name: addressForm.fullName,
+            phone: addressForm.phone,
+            address_line1: addressForm.addressLine1,
+            address_line2: addressForm.addressLine2 || null,
+            city: addressForm.city,
+            state: addressForm.state,
+            pincode: addressForm.pincode,
+            country: 'India'
+          },
+          notes: 'WhatsApp checkout modal order'
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // 2. Insert order items
+      if (orderData && whatsAppOrderItems.length > 0) {
+        const orderItems = whatsAppOrderItems.map((item: any) => ({
+          order_id: orderData.id,
+          product_id: item.productId || null,
+          product_name: item.name,
+          product_image: item.image || null,
+          variant: item.variant || null,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.price * item.quantity,
+        }));
+        
+        const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+        if (itemsError) console.error('Error inserting order items:', itemsError);
+      }
+
+      // 3. Save to temp_orders table as well so the admin panel continues working seamlessly
       const itemsPayload = whatsAppOrderItems.map((item) => ({
         productId: item.productId,
         name: item.name,
@@ -461,40 +520,73 @@ export default function WhatsAppCheckoutModal() {
         price: item.price,
       }));
 
-      const { error: tempError } = await supabase.from('temp_orders').insert({
+      await supabase.from('temp_orders').insert({
         user_id: user?.id || null,
-        temp_order_number: tempOrderNumber,
+        temp_order_number: orderId,
         status: 'pending_verification',
         subtotal: whatsAppTotal,
-        shipping_fee: whatsAppTotal >= 1000 ? 0 : 99,
-        total: whatsAppTotal + (whatsAppTotal >= 1000 ? 0 : 99),
-        shipping_address: finalAddress,
+        shipping_fee: shippingFee,
+        total: grandTotal,
+        shipping_address: {
+          fullName: addressForm.fullName,
+          phone: addressForm.phone,
+          addressLine1: addressForm.addressLine1,
+          addressLine2: addressForm.addressLine2 || null,
+          city: addressForm.city,
+          state: addressForm.state,
+          pincode: addressForm.pincode
+        },
         items: itemsPayload,
+        confirmed_order_number: orderId
       });
 
-      if (tempError) {
-        console.error('Temp order insert error:', tempError.message);
-        // Non-fatal — still proceed to WhatsApp
-      }
-
-      // Generate WhatsApp message & open — works for both guests and logged-in users
-      const shippingDetails = {
+      // 4. Generate WhatsApp message & redirect
+      const customerDetails = {
         fullName: addressForm.fullName,
         phone: addressForm.phone,
+        email: user?.email || 'N/A',
         addressLine1: addressForm.addressLine1,
         addressLine2: addressForm.addressLine2 || null,
         city: addressForm.city,
         state: addressForm.state,
-        pincode: addressForm.pincode
+        pincode: addressForm.pincode,
+        country: 'India'
       };
 
-      const waUrl = generateCartWhatsAppURL(whatsAppOrderItems, whatsAppTotal, shippingDetails, activeWaNumber || undefined, tempOrderNumber);
-      openWhatsApp(waUrl);
+      const enrichedItems = whatsAppOrderItems.map((item: any) => ({
+        productId: item.productId,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        variant: item.variant || null,
+        image: item.image || null
+      }));
 
-      // Clear cart & close modal
-      clearCart();
-      setWhatsAppModalOpen(false);
-      toast.success(`Order ${tempOrderNumber} sent to WhatsApp! Awaiting payment verification. 🌸`);
+      const waUrl = generateCartWhatsAppURL(
+        enrichedItems,
+        {
+          subtotal: whatsAppTotal,
+          shippingCharge: shippingFee,
+          discount: 0,
+          grandTotal: grandTotal,
+          paymentMethod: 'whatsapp',
+          paymentStatus: 'pending'
+        },
+        customerDetails,
+        orderId,
+        activeWaNumber || undefined
+      );
+
+      const redirectSuccess = await openWhatsApp(waUrl, false);
+      if (redirectSuccess) {
+        // Clear cart & close modal
+        clearCart();
+        setWhatsAppModalOpen(false);
+        toast.success(`Order ${orderId} initiated on WhatsApp! 🌸`);
+        router.push(`/orders/${orderId}`);
+      } else {
+        toast.error("Unable to open WhatsApp. Please install WhatsApp or contact support.");
+      }
     } catch (err: any) {
       toast.error(err.message || 'Something went wrong. Please try again.');
     } finally {
@@ -935,13 +1027,17 @@ export default function WhatsAppCheckoutModal() {
                   <span>Subtotal</span>
                   <span>₹{whatsAppTotal.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Shipping Fee</span>
-                  <span>{whatsAppTotal >= 1000 ? 'FREE' : '₹99'}</span>
-                </div>
+                {shippingEnabled && (
+                  <div className="flex justify-between">
+                    <span>Shipping Fee</span>
+                    <span className={shippingFeeSetting === 0 || whatsAppTotal >= freeThresholdSetting ? "text-green-600 font-medium" : ""}>
+                      {shippingFeeSetting === 0 || whatsAppTotal >= freeThresholdSetting ? 'FREE' : `₹${shippingFeeSetting}`}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between font-heading text-base text-daisy-900 pt-1.5 border-t border-dashed border-nude-200">
                   <span>Grand Total</span>
-                  <span>₹{(whatsAppTotal + (whatsAppTotal >= 1000 ? 0 : 99)).toLocaleString('en-IN')}</span>
+                  <span>₹{(whatsAppTotal + (!shippingEnabled ? 0 : (shippingFeeSetting === 0 || whatsAppTotal >= freeThresholdSetting ? 0 : shippingFeeSetting))).toLocaleString('en-IN')}</span>
                 </div>
               </div>
 
