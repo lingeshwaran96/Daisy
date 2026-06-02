@@ -60,30 +60,42 @@ export async function getShippingSettings(): Promise<ShippingSettings> {
 
 /**
  * Fetches the active (primary) WhatsApp number from the database.
+ * Checks both 'whatsapp_primary' (Admin Settings tab) and 'whatsapp_number' (Footer Settings tab).
  * Uses an in-memory cache to avoid hammering the DB on every call.
  */
 export async function getActiveWhatsAppNumber(): Promise<string> {
   const now = Date.now();
   if (cachedNumber && now - cacheTimestamp < CACHE_TTL) {
+    console.log('[WhatsApp] Returning cached number:', cachedNumber);
     return cachedNumber;
   }
 
   try {
+    // Query both possible keys — Admin Settings saves as 'whatsapp_primary',
+    // Footer Settings saves as 'whatsapp_number'
     const { data } = await supabase
       .from('site_settings')
-      .select('value')
-      .eq('key', 'whatsapp_primary')
-      .single();
+      .select('key, value')
+      .in('key', ['whatsapp_primary', 'whatsapp_number']);
 
-    if (data?.value) {
-      cachedNumber = data.value;
-      cacheTimestamp = now;
-      return data.value;
+    if (data && data.length > 0) {
+      // Prefer 'whatsapp_primary' (set by Admin Settings → WhatsApp Contacts tab)
+      const primaryRow = data.find(r => r.key === 'whatsapp_primary');
+      const footerRow = data.find(r => r.key === 'whatsapp_number');
+      const resolvedNumber = primaryRow?.value || footerRow?.value;
+
+      if (resolvedNumber) {
+        console.log('[WhatsApp] Number loaded from DB:', resolvedNumber, '| Source key:', primaryRow?.value ? 'whatsapp_primary' : 'whatsapp_number');
+        cachedNumber = resolvedNumber;
+        cacheTimestamp = now;
+        return resolvedNumber;
+      }
     }
-  } catch {
-    // DB not available — use fallback
+  } catch (err) {
+    console.warn('[WhatsApp] DB fetch failed, using fallback:', err);
   }
 
+  console.log('[WhatsApp] Using fallback number:', FALLBACK_NUMBER);
   return FALLBACK_NUMBER;
 }
 

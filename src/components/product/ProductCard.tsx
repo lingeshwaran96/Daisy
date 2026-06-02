@@ -9,6 +9,7 @@ import { Heart, ShoppingBag, Eye } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import toast from 'react-hot-toast';
 import type { Product } from '@/types/database';
+import * as pixel from '@/utils/pixel';
 
 type Props = {
   product: Product;
@@ -37,6 +38,13 @@ export default function ProductCard({ product, index = 0 }: Props) {
       variant: null,
       quantity: 1,
     });
+    pixel.event('AddToCart', {
+      content_name: product.name,
+      content_ids: [product.id],
+      content_type: 'product',
+      value: price,
+      currency: 'INR'
+    });
     toast.success('Added to bag!');
     setCartOpen(true);
   };
@@ -49,6 +57,13 @@ export default function ProductCard({ product, index = 0 }: Props) {
       toast('Removed from wishlist');
     } else {
       addToWishlist({ productId: product.id, name: product.name, price, image: product.images?.[0] || '' });
+      pixel.event('AddToWishlist', {
+        content_name: product.name,
+        content_ids: [product.id],
+        content_type: 'product',
+        value: price,
+        currency: 'INR'
+      });
       toast.success('❤️ Added to wishlist!');
     }
   };

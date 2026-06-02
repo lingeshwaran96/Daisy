@@ -8,6 +8,7 @@ import ProductCard from '@/components/product/ProductCard';
 import { SlidersHorizontal, ChevronDown, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Product } from '@/types/database';
+import * as pixel from '@/utils/pixel';
 
 const SORT_OPTIONS = [
   { label: 'Newest', value: 'created_at-desc' },
@@ -83,6 +84,14 @@ export default function SearchContent() {
       setLoading(false);
     }
   }, [query, sort, priceRange, showInStock]);
+
+  useEffect(() => {
+    if (query) {
+      pixel.event('Search', {
+        search_string: query
+      });
+    }
+  }, [query]);
 
   return (
     <main className="pb-20 md:pb-0 min-h-screen bg-white">

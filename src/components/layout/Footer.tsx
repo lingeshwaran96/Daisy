@@ -6,6 +6,7 @@ import { Instagram, Facebook, Youtube, Mail, Phone, MapPin, MessageCircle } from
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '@/lib/supabase';
+import * as pixel from '@/utils/pixel';
 
 type Settings = Record<string, string>;
 
@@ -93,6 +94,10 @@ export default function Footer() {
       const data = await res.json();
       if (res.ok) {
         toast.success('🌸 Thank you for subscribing!');
+        pixel.event('Lead', {
+          content_name: 'newsletter_subscription',
+          status: 'success'
+        });
         setEmail('');
       } else {
         toast.error(data.error || 'Already subscribed or invalid email');

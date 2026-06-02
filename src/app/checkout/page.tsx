@@ -15,6 +15,7 @@ import SearchOverlay from '@/components/layout/SearchOverlay';
 import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { generateCartWhatsAppURL, openWhatsApp, getShippingSettings } from '@/lib/whatsapp';
+import * as pixel from '@/utils/pixel';
 
 type Address = {
   full_name: string; phone: string; address_line1: string;
@@ -74,6 +75,17 @@ export default function CheckoutPage() {
         }
       });
     });
+
+    // Track InitiateCheckout
+    if (items.length > 0) {
+      pixel.event('InitiateCheckout', {
+        num_items: items.reduce((sum, i) => sum + i.quantity, 0),
+        value: subtotal,
+        currency: 'INR',
+        content_ids: items.map(i => i.productId),
+        content_type: 'product'
+      });
+    }
   }, []);
 
   const pickSaved = (a: SavedAddress) => {
@@ -247,6 +259,14 @@ export default function CheckoutPage() {
 
       const redirectSuccess = await openWhatsApp(waUrl, false);
       if (redirectSuccess) {
+        // Track Purchase event for WhatsApp order initiation
+        pixel.event('Purchase', {
+          value: total,
+          currency: 'INR',
+          content_ids: items.map(i => i.productId),
+          content_type: 'product',
+          num_items: items.reduce((sum, i) => sum + i.quantity, 0)
+        });
         clearCart();
         toast.success(`Order ${orderId} initiated on WhatsApp! 🌸`);
         router.push(`/orders/${orderId}`);
@@ -306,6 +326,14 @@ export default function CheckoutPage() {
             });
             const vData = await vRes.json();
             if (!vRes.ok || !vData.success) { toast.error('Payment verification failed'); return; }
+            // Track Purchase event for Online Payment
+            pixel.event('Purchase', {
+              value: total,
+              currency: 'INR',
+              content_ids: items.map(i => i.productId),
+              content_type: 'product',
+              num_items: items.reduce((sum, i) => sum + i.quantity, 0)
+            });
             clearCart();
             toast.success('🌸 Order placed!');
             router.push(`/order-success?order=${orderNum}`);
@@ -318,6 +346,14 @@ export default function CheckoutPage() {
         setPlacing(false);
       }
     } else {
+      // Track Purchase event for Manual Payment Method
+      pixel.event('Purchase', {
+        value: total,
+        currency: 'INR',
+        content_ids: items.map(i => i.productId),
+        content_type: 'product',
+        num_items: items.reduce((sum, i) => sum + i.quantity, 0)
+      });
       clearCart();
       toast.success('🌸 Order placed!');
       router.push(`/order-success?order=${orderNum}&method=manual`);

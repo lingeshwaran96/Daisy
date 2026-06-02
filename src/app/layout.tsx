@@ -4,6 +4,7 @@
 import type { Metadata } from 'next';
 import { Toaster } from 'react-hot-toast';
 import '@/styles/globals.css';
+import MetaPixel from '@/components/MetaPixel';
 
 export const metadata: Metadata = {
   title: { default: 'DAISY – Elegance That Blooms', template: '%s | DAISY' },
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             },
           }}
         />
+        <MetaPixel />
         {children}
       </body>
     </html>

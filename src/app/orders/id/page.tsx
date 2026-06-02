@@ -6,12 +6,13 @@ import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { 
-  CheckCircle, Clock, MapPin, Phone, Mail, ShoppingBag, 
+import {
+  CheckCircle, Clock, MapPin, Phone, Mail, ShoppingBag,
   ShieldCheck, ArrowLeft, Loader2, AlertCircle, FileText,
   BadgeAlert, Sparkles, Printer, ExternalLink
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { getActiveWhatsAppNumber } from '@/lib/whatsapp';
 import AnnouncementBar from '@/components/layout/AnnouncementBar';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -63,6 +64,15 @@ export default function OrderDetailsPage() {
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [waNumber, setWaNumber] = useState(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '');
+
+  // Fetch the admin-configured WhatsApp number from the database
+  useEffect(() => {
+    getActiveWhatsAppNumber().then((num) => {
+      console.log('[OrderDetails] WhatsApp number loaded from DB:', num);
+      setWaNumber(num);
+    });
+  }, []);
 
   useEffect(() => {
     if (!orderId) return;
@@ -142,7 +152,7 @@ export default function OrderDetailsPage() {
 
         if (tempOrder) {
           const rawItems = Array.isArray(tempOrder.items) ? tempOrder.items : [];
-          
+
           const itemsWithSku = await Promise.all(
             rawItems.map(async (item: any) => {
               let sku = null;
@@ -260,7 +270,7 @@ export default function OrderDetailsPage() {
 
       <main className="min-h-screen bg-cream dark:bg-neutral-950 py-10 md:py-16 transition-colors duration-300">
         <div className="max-w-[1000px] mx-auto px-4 sm:px-6 md:px-8">
-          
+
           {/* Back button */}
           <Link href="/" className="inline-flex items-center gap-2 font-body text-xs text-daisy-500 hover:text-daisy-800 dark:hover:text-daisy-300 transition-colors mb-8 group">
             <ArrowLeft size={14} className="transition-transform group-hover:-translate-x-1" />
@@ -283,7 +293,7 @@ export default function OrderDetailsPage() {
                 <Link href="/collections" className="btn-primary py-3 rounded-xl font-body text-xs">
                   Continue Shopping
                 </Link>
-                <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" className="btn-outline py-3 rounded-xl font-body text-xs">
+                <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noopener noreferrer" className="btn-outline py-3 rounded-xl font-body text-xs">
                   Contact Support
                 </a>
               </div>
@@ -327,10 +337,10 @@ export default function OrderDetailsPage() {
 
               {/* Main Content Grid */}
               <div className="grid md:grid-cols-3 gap-6">
-                
+
                 {/* Left side: Items & Totals (Col-span 2) */}
                 <div className="md:col-span-2 space-y-6">
-                  
+
                   {/* Items List Card */}
                   <div className="bg-white dark:bg-neutral-900 border border-nude-200/60 dark:border-neutral-800 rounded-2xl p-6 md:p-8 shadow-sm">
                     <h2 className="font-heading text-xl text-daisy-900 dark:text-cream border-b border-nude-100 dark:border-neutral-850 pb-4 mb-6 flex items-center gap-2">
@@ -363,7 +373,7 @@ export default function OrderDetailsPage() {
                                 {item.variant && <span><strong>Variant:</strong> {item.variant}</span>}
                               </div>
                             </div>
-                            
+
                             <div className="flex items-center justify-between mt-3">
                               <span className="font-body text-xs text-daisy-500 dark:text-daisy-400">
                                 ₹{item.price.toLocaleString('en-IN')} × {item.quantity}
@@ -426,7 +436,7 @@ export default function OrderDetailsPage() {
 
                 {/* Right side: Customer & Address Details (Col-span 1) */}
                 <div className="space-y-6">
-                  
+
                   {/* Shipping Address Card */}
                   <div className="bg-white dark:bg-neutral-900 border border-nude-200/60 dark:border-neutral-800 rounded-2xl p-6 shadow-sm space-y-4">
                     <h2 className="font-heading text-xl text-daisy-900 dark:text-cream border-b border-nude-100 dark:border-neutral-850 pb-3 flex items-center gap-2">
@@ -436,7 +446,7 @@ export default function OrderDetailsPage() {
 
                     <div className="font-body text-xs text-daisy-700 dark:text-daisy-400 space-y-2.5 leading-relaxed">
                       <p className="font-semibold text-daisy-900 dark:text-cream text-sm">{order.shippingAddress.fullName}</p>
-                      
+
                       <div className="flex items-center gap-2">
                         <Phone size={13} className="text-daisy-400" />
                         <span>{order.shippingAddress.phone}</span>
@@ -470,9 +480,9 @@ export default function OrderDetailsPage() {
                       <p className="font-body text-xs text-amber-700 dark:text-amber-450 leading-relaxed">
                         To complete your order, please complete your UPI/QR payment as discussed. Once you share the receipt on WhatsApp, our admin will verify it and update your status here in real-time.
                       </p>
-                      <a 
-                        href={`https://wa.me/919876543210?text=${encodeURIComponent(`🌸 Hi DAISY! I have placed order ${order.orderNumber} and would like to verify payment.`)}`} 
-                        target="_blank" 
+                      <a
+                        href={`https://wa.me/${waNumber}?text=${encodeURIComponent(`🌸 Hi DAISY! I have placed order ${order.orderNumber} and would like to verify payment.`)}`}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20b858] text-white py-2.5 rounded-xl font-body text-xs font-semibold shadow-sm transition-all"
                       >
@@ -484,14 +494,14 @@ export default function OrderDetailsPage() {
 
                   {/* Action buttons */}
                   <div className="space-y-3.5">
-                    <button 
+                    <button
                       onClick={() => window.print()}
                       className="w-full flex items-center justify-center gap-2 border border-nude-300 dark:border-neutral-800 py-3 rounded-xl font-body text-xs font-semibold text-daisy-700 hover:text-daisy-900 dark:text-daisy-400 dark:hover:text-cream hover:bg-nude-50/50 dark:hover:bg-neutral-850 transition-all"
                     >
                       <Printer size={14} />
                       Print Receipt
                     </button>
-                    <Link 
+                    <Link
                       href="/collections"
                       className="w-full btn-outline py-3.5 rounded-xl font-body text-xs font-semibold text-center block"
                     >

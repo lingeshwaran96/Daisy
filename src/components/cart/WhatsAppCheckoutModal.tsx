@@ -9,6 +9,7 @@ import { useStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { generateCartWhatsAppURL, openWhatsApp, getActiveWhatsAppNumber, getShippingSettings } from '@/lib/whatsapp';
 import toast from 'react-hot-toast';
+import * as pixel from '@/utils/pixel';
 
 // Supported country codes for the premium selector
 const COUNTRY_CODES = [
@@ -48,6 +49,7 @@ export default function WhatsAppCheckoutModal() {
   const [shippingFeeSetting, setShippingFeeSetting] = useState(99);
   const [freeThresholdSetting, setFreeThresholdSetting] = useState(1000);
   const [shippingEnabled, setShippingEnabled] = useState(false);
+  const [smsOtpEnabled, setSmsOtpEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
 
   // Production Phone Auth States
@@ -113,6 +115,31 @@ export default function WhatsAppCheckoutModal() {
       setCountdown(0);
       setIsCustomOtp(false);
       setOtpHash(null);
+
+      // Fetch SMS OTP enabled status
+      supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'sms_otp_enabled')
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data && data.value === 'false') {
+            setSmsOtpEnabled(false);
+          } else {
+            setSmsOtpEnabled(true);
+          }
+        });
+
+      // Track InitiateCheckout
+      if (whatsAppOrderItems.length > 0) {
+        pixel.event('InitiateCheckout', {
+          num_items: whatsAppOrderItems.reduce((sum: number, i: any) => sum + i.quantity, 0),
+          value: whatsAppTotal,
+          currency: 'INR',
+          content_ids: whatsAppOrderItems.map((i: any) => i.productId),
+          content_type: 'product'
+        });
+      }
     }
   }, [whatsAppModalOpen]);
 
@@ -600,6 +627,14 @@ export default function WhatsAppCheckoutModal() {
 
       const redirectSuccess = await openWhatsApp(waUrl, false);
       if (redirectSuccess) {
+        // Track Purchase event for WhatsApp Checkout Modal
+        pixel.event('Purchase', {
+          value: grandTotal,
+          currency: 'INR',
+          content_ids: whatsAppOrderItems.map((i: any) => i.productId),
+          content_type: 'product',
+          num_items: whatsAppOrderItems.reduce((sum: number, i: any) => sum + i.quantity, 0)
+        });
         // Clear cart & close modal
         clearCart();
         setWhatsAppModalOpen(false);
@@ -665,7 +700,9 @@ export default function WhatsAppCheckoutModal() {
                 <ShieldCheck className="mx-auto text-daisy-600 mb-2" size={42} />
                 <h4 className="font-heading text-base text-daisy-800">Verify Your Identity</h4>
                 <p className="font-body text-xs text-daisy-500 max-w-sm mx-auto mt-1">
-                  To continue, please sign in with your Gmail or verify your mobile number.
+                  {smsOtpEnabled
+                    ? 'To continue, please sign in with your Gmail or verify your mobile number.'
+                    : 'To continue, please sign in with your Gmail.'}
                 </p>
               </div>
 
@@ -679,138 +716,142 @@ export default function WhatsAppCheckoutModal() {
                 Continue with Gmail
               </button>
 
-              <div className="relative flex items-center">
-                <div className="flex-1 h-px bg-nude-200" />
-                <span className="font-body text-[10px] text-daisy-400 px-4">OR</span>
-                <div className="flex-1 h-px bg-nude-200" />
-              </div>
+              {smsOtpEnabled && (
+                <>
+                  <div className="relative flex items-center">
+                    <div className="flex-1 h-px bg-nude-200" />
+                    <span className="font-body text-[10px] text-daisy-400 px-4">OR</span>
+                    <div className="flex-1 h-px bg-nude-200" />
+                  </div>
 
-              {/* Phone OTP Verification */}
-              <div className="space-y-6">
-                {!otpSent ? (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block font-body text-xs font-semibold text-daisy-800 tracking-wider uppercase mb-2">
-                        Mobile Number
-                      </label>
-                      <div className="flex flex-col gap-3">
-                        <div className="flex gap-2">
-                          {/* Country Code Dropdown */}
-                          <div className="relative">
-                            <select
-                              value={countryCode}
-                              onChange={(e) => setCountryCode(e.target.value)}
-                              className="bg-cream border border-daisy-200 rounded-xl px-3.5 py-3 font-body text-xs text-daisy-900 outline-none focus:border-daisy-500 transition-colors cursor-pointer appearance-none pr-8 font-medium"
-                            >
-                              {COUNTRY_CODES.map((item) => (
-                                <option key={item.code} value={item.code}>
-                                  {item.code}
-                                </option>
-                              ))}
-                            </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-daisy-400 text-[10px]">
-                              ▼
+                  {/* Phone OTP Verification */}
+                  <div className="space-y-6">
+                    {!otpSent ? (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block font-body text-xs font-semibold text-daisy-800 tracking-wider uppercase mb-2">
+                            Mobile Number
+                          </label>
+                          <div className="flex flex-col gap-3">
+                            <div className="flex gap-2">
+                              {/* Country Code Dropdown */}
+                              <div className="relative">
+                                <select
+                                  value={countryCode}
+                                  onChange={(e) => setCountryCode(e.target.value)}
+                                  className="bg-cream border border-daisy-200 rounded-xl px-3.5 py-3 font-body text-xs text-daisy-900 outline-none focus:border-daisy-500 transition-colors cursor-pointer appearance-none pr-8 font-medium"
+                                >
+                                  {COUNTRY_CODES.map((item) => (
+                                    <option key={item.code} value={item.code}>
+                                      {item.code}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-daisy-400 text-[10px]">
+                                  ▼
+                                </div>
+                              </div>
+
+                              {/* Phone Input */}
+                              <div className="relative flex-1">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-body text-xs text-daisy-400">
+                                  📱
+                                </span>
+                                <input
+                                  type="tel"
+                                  maxLength={10}
+                                  placeholder="Enter 10-Digit Mobile"
+                                  value={phoneInput}
+                                  onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))}
+                                  className="w-full pl-9 pr-4 py-3 bg-cream/30 border border-daisy-200 rounded-xl font-body text-xs text-daisy-800 outline-none focus:border-daisy-500 transition-colors font-medium"
+                                />
+                              </div>
                             </div>
-                          </div>
 
-                          {/* Phone Input */}
-                          <div className="relative flex-1">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-body text-xs text-daisy-400">
-                              📱
-                            </span>
-                            <input
-                              type="tel"
-                              maxLength={10}
-                              placeholder="Enter 10-Digit Mobile"
-                              value={phoneInput}
-                              onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))}
-                              className="w-full pl-9 pr-4 py-3 bg-cream/30 border border-daisy-200 rounded-xl font-body text-xs text-daisy-800 outline-none focus:border-daisy-500 transition-colors font-medium"
-                            />
+                            {/* Trigger Send OTP */}
+                            <button
+                              onClick={handleSendOtp}
+                              disabled={loading || phoneInput.length !== 10}
+                              className="w-full bg-daisy-950 hover:bg-daisy-900 text-cream py-3 rounded-xl font-body text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center border border-daisy-900 shadow-md"
+                            >
+                              {loading ? (
+                                <Loader2 className="animate-spin" size={14} />
+                              ) : (
+                                'Send OTP'
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Premium Separated 6-Digit OTP Box Grid */}
+                        <div>
+                          <label className="block text-center font-body text-xs font-semibold text-daisy-800 tracking-wider uppercase mb-3.5">
+                            Enter 6-Digit OTP Sent to Your SIM Inbox
+                          </label>
+                          <div className="flex justify-center gap-2">
+                            {otpDigits.map((digit, index) => (
+                              <input
+                                key={index}
+                                type="text"
+                                maxLength={1}
+                                ref={(el) => { otpInputsRef.current[index] = el; }}
+                                value={digit}
+                                onChange={(e) => handleDigitChange(index, e.target.value)}
+                                onKeyDown={(e) => handleDigitKeyDown(index, e)}
+                                onPaste={handleDigitPaste}
+                                className="w-11 h-12 text-center bg-cream border-2 border-daisy-200 focus:border-daisy-600 rounded-xl font-heading text-lg font-semibold text-daisy-950 outline-none transition-all shadow-sm focus:scale-105"
+                              />
+                            ))}
                           </div>
                         </div>
 
-                        {/* Trigger Send OTP */}
-                        <button
-                          onClick={handleSendOtp}
-                          disabled={loading || phoneInput.length !== 10}
-                          className="w-full bg-daisy-950 hover:bg-daisy-900 text-cream py-3 rounded-xl font-body text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center border border-daisy-900 shadow-md"
-                        >
-                          {loading ? (
-                            <Loader2 className="animate-spin" size={14} />
+                        {/* Resend Status and Footer Buttons */}
+                        <div className="flex flex-col items-center gap-4">
+                          {countdown > 0 ? (
+                            <p className="font-body text-xs text-daisy-500 bg-daisy-50/50 px-3.5 py-1.5 rounded-full border border-daisy-100/50">
+                              Resend code in <span className="font-semibold text-daisy-800">{countdown}s</span>
+                            </p>
                           ) : (
-                            'Send OTP'
+                            <button
+                              onClick={handleSendOtp}
+                              disabled={loading}
+                              className="font-body text-xs text-daisy-700 hover:text-daisy-950 underline underline-offset-4 font-semibold transition-colors"
+                            >
+                              Resend OTP Code
+                            </button>
                           )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* Premium Separated 6-Digit OTP Box Grid */}
-                    <div>
-                      <label className="block text-center font-body text-xs font-semibold text-daisy-800 tracking-wider uppercase mb-3.5">
-                        Enter 6-Digit OTP Sent to Your SIM Inbox
-                      </label>
-                      <div className="flex justify-center gap-2">
-                        {otpDigits.map((digit, index) => (
-                          <input
-                            key={index}
-                            type="text"
-                            maxLength={1}
-                            ref={(el) => { otpInputsRef.current[index] = el; }}
-                            value={digit}
-                            onChange={(e) => handleDigitChange(index, e.target.value)}
-                            onKeyDown={(e) => handleDigitKeyDown(index, e)}
-                            onPaste={handleDigitPaste}
-                            className="w-11 h-12 text-center bg-cream border-2 border-daisy-200 focus:border-daisy-600 rounded-xl font-heading text-lg font-semibold text-daisy-950 outline-none transition-all shadow-sm focus:scale-105"
-                          />
-                        ))}
-                      </div>
-                    </div>
 
-                    {/* Resend Status and Footer Buttons */}
-                    <div className="flex flex-col items-center gap-4">
-                      {countdown > 0 ? (
-                        <p className="font-body text-xs text-daisy-500 bg-daisy-50/50 px-3.5 py-1.5 rounded-full border border-daisy-100/50">
-                          Resend code in <span className="font-semibold text-daisy-800">{countdown}s</span>
-                        </p>
-                      ) : (
-                        <button
-                          onClick={handleSendOtp}
-                          disabled={loading}
-                          className="font-body text-xs text-daisy-700 hover:text-daisy-950 underline underline-offset-4 font-semibold transition-colors"
-                        >
-                          Resend OTP Code
-                        </button>
-                      )}
-
-                      <div className="flex gap-2.5 w-full mt-1.5">
-                        <button
-                          onClick={() => { setOtpSent(false); setOtpDigits(['', '', '', '', '', '']); }}
-                          disabled={loading}
-                          className="flex-1 border border-daisy-200 py-3 rounded-xl font-body text-xs font-semibold text-daisy-700 hover:bg-cream transition-all uppercase tracking-wider"
-                        >
-                          Change Number
-                        </button>
-                        <button
-                          onClick={handleVerifyOtp}
-                          disabled={loading || otpDigits.join('').length !== 6}
-                          className="flex-1 bg-daisy-950 hover:bg-daisy-900 text-cream py-3 rounded-xl font-body text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition-all disabled:opacity-40 uppercase tracking-wider border border-daisy-900"
-                        >
-                          {loading ? (
-                            <Loader2 className="animate-spin" size={14} />
-                          ) : (
-                            <>
-                              <ShieldCheck size={14} />
-                              Verify & Continue
-                            </>
-                          )}
-                        </button>
+                          <div className="flex gap-2.5 w-full mt-1.5">
+                            <button
+                              onClick={() => { setOtpSent(false); setOtpDigits(['', '', '', '', '', '']); }}
+                              disabled={loading}
+                              className="flex-1 border border-daisy-200 py-3 rounded-xl font-body text-xs font-semibold text-daisy-700 hover:bg-cream transition-all uppercase tracking-wider"
+                            >
+                              Change Number
+                            </button>
+                            <button
+                              onClick={handleVerifyOtp}
+                              disabled={loading || otpDigits.join('').length !== 6}
+                              className="flex-1 bg-daisy-950 hover:bg-daisy-900 text-cream py-3 rounded-xl font-body text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition-all disabled:opacity-40 uppercase tracking-wider border border-daisy-900"
+                            >
+                              {loading ? (
+                                <Loader2 className="animate-spin" size={14} />
+                              ) : (
+                                <>
+                                  <ShieldCheck size={14} />
+                                  Verify & Continue
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
           )}
 

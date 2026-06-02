@@ -15,6 +15,7 @@ import ProductCard from '@/components/product/ProductCard';
 import { useStore } from '@/lib/store';
 import { generateWhatsAppOrderURL, openWhatsApp } from '@/lib/whatsapp';
 import type { Product, Review } from '@/types/database';
+import * as pixel from '@/utils/pixel';
 
 type Props = {
   product: (Product & { categories?: { name: string; slug: string } | null }) | null;
@@ -227,10 +228,30 @@ export default function ProductPageClient({ product: dbProduct, slug, related, r
     : 0;
   const wishlisted = isWishlisted(product.id);
 
+  useEffect(() => {
+    if (product) {
+      pixel.event('ViewContent', {
+        content_name: product.name,
+        content_ids: [product.id],
+        content_type: 'product',
+        value: price,
+        currency: 'INR'
+      });
+    }
+  }, [product, price]);
+
   const handleAddToCart = () => {
     if (product.stock === 0) return;
     const variantStr = Object.entries(selectedVariants).map(([k, v]) => `${k}: ${v}`).join(', ');
     addItem({ id: product.id, productId: product.id, name: product.name, price, image: product.images?.[0] || '', variant: variantStr || null, quantity });
+    pixel.event('AddToCart', {
+      content_name: product.name,
+      content_ids: [product.id],
+      content_type: 'product',
+      value: price,
+      currency: 'INR',
+      quantity
+    });
     toast.success('Added to bag!');
     setCartOpen(true);
   };
@@ -254,7 +275,17 @@ export default function ProductPageClient({ product: dbProduct, slug, related, r
   const handleWishlist = () => {
     const store = useStore.getState();
     if (wishlisted) { store.removeFromWishlist(product.id); toast('Removed from wishlist'); }
-    else { store.addToWishlist({ productId: product.id, name: product.name, price, image: product.images?.[0] || '' }); toast.success('❤️ Saved to wishlist!'); }
+    else {
+      store.addToWishlist({ productId: product.id, name: product.name, price, image: product.images?.[0] || '' });
+      pixel.event('AddToWishlist', {
+        content_name: product.name,
+        content_ids: [product.id],
+        content_type: 'product',
+        value: price,
+        currency: 'INR'
+      });
+      toast.success('❤️ Saved to wishlist!');
+    }
   };
 
   const handleShare = async () => {

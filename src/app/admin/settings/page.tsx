@@ -50,6 +50,7 @@ export default function AdminSettingsPage() {
 
   // Checkout Toggle Settings State
   const [checkoutEnabled, setCheckoutEnabled] = useState(true);
+  const [smsOtpEnabled, setSmsOtpEnabled] = useState(true);
   const [settingLoading, setSettingLoading] = useState(true);
 
   // WhatsApp Contact Numbers State
@@ -123,6 +124,9 @@ export default function AdminSettingsPage() {
       if (data) {
         const checkoutRow = data.find(r => r.key === 'checkout_enabled');
         if (checkoutRow) setCheckoutEnabled(checkoutRow.value !== 'false');
+
+        const smsOtpRow = data.find(r => r.key === 'sms_otp_enabled');
+        if (smsOtpRow) setSmsOtpEnabled(smsOtpRow.value !== 'false');
 
         const waListRow = data.find(r => r.key === 'whatsapp_numbers_list');
         if (waListRow) {
@@ -382,6 +386,25 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const toggleSmsOtpSetting = async () => {
+    setSettingLoading(true);
+    const newValue = !smsOtpEnabled;
+    try {
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({ key: 'sms_otp_enabled', value: newValue ? 'true' : 'false' });
+
+      if (error) throw error;
+      setSmsOtpEnabled(newValue);
+      toast.success(newValue ? 'SMS OTP Verification enabled!' : 'SMS OTP Verification disabled! Users must log in via Gmail.');
+    } catch (err: any) {
+      console.error('Error updating settings:', err);
+      toast.error('Failed to update setting: ' + err.message);
+    } finally {
+      setSettingLoading(false);
+    }
+  };
+
   // Seed Categories Database Helper
   const seedCategories = async () => {
     setCatStatus('running');
@@ -631,6 +654,46 @@ export default function AdminSettingsPage() {
                 onClick={toggleCheckoutSetting}
                 disabled={settingLoading}
                 className={`w-14 h-8 rounded-full transition-colors flex items-center p-1 cursor-pointer disabled:opacity-50 relative focus:outline-none ${checkoutEnabled ? 'bg-daisy-800 justify-end' : 'bg-nude-200 justify-start'
+                  }`}
+              >
+                <motion.div
+                  layout
+                  className="w-6 h-6 bg-cream rounded-full shadow-sm"
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              </button>
+            </div>
+          </section>
+
+          <section className="bg-white border border-nude-200 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="font-heading text-xl text-daisy-800">Authentication Settings</h2>
+                <p className="font-body text-xs text-daisy-400 mt-1">Configure user login options for WhatsApp Checkout verification</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {settingLoading ? (
+                  <Loader2 size={16} className="text-daisy-500 animate-spin" />
+                ) : (
+                  <span className={`text-xs font-body uppercase tracking-wider px-2.5 py-1 rounded-sm font-semibold ${smsOtpEnabled ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                    {smsOtpEnabled ? 'SMS Enabled' : 'Gmail Only'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="border border-nude-200 p-5 rounded-sm flex items-center justify-between bg-nude-50/30">
+              <div className="max-w-[75%] pr-4">
+                <h3 className="font-body text-sm font-semibold text-daisy-900">Mobile SMS OTP Verification</h3>
+                <p className="font-body text-xs text-daisy-500 mt-1 leading-relaxed">
+                  Turn on to allow customers to verify using their mobile number via SMS OTP. Turn off to disable mobile number verification (e.g. if SMS recharge or credits run out), forcing all users to sign in with Google/Gmail.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={toggleSmsOtpSetting}
+                disabled={settingLoading}
+                className={`w-14 h-8 rounded-full transition-colors flex items-center p-1 cursor-pointer disabled:opacity-50 relative focus:outline-none ${smsOtpEnabled ? 'bg-daisy-800 justify-end' : 'bg-nude-200 justify-start'
                   }`}
               >
                 <motion.div
