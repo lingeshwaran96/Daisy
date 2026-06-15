@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, ShoppingBag, Heart, User, Menu, X, Sun, Moon, ChevronDown, MessageSquare,
@@ -69,9 +70,14 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [expandedMobileMenu, setExpandedMobileMenu] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const timeoutRef = useRef<NodeJS.Timeout>();
   const [mounted, setMounted] = useState(false);
+  const [logoUrl, setLogoUrl] = useState('/images/logo.png');
+  const [logoType, setLogoType] = useState('image');
+  const [companyName, setCompanyName] = useState('DAISY');
+  const [tagline, setTagline] = useState('Elegance That Blooms');
 
   const { items, setCartOpen, setSearchOpen, darkMode, toggleDarkMode } = useStore();
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
@@ -109,6 +115,24 @@ export default function Navbar() {
       });
   }, []);
 
+  // Load logo settings from DB
+  useEffect(() => {
+    supabase
+      .from('site_settings')
+      .select('key, value')
+      .in('key', ['logo_url', 'logo_type', 'company_name', 'tagline'])
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          data.forEach((row) => {
+            if (row.key === 'logo_url' && row.value) setLogoUrl(row.value);
+            if (row.key === 'logo_type' && row.value) setLogoType(row.value);
+            if (row.key === 'company_name' && row.value) setCompanyName(row.value);
+            if (row.key === 'tagline' && row.value) setTagline(row.value);
+          });
+        }
+      });
+  }, []);
+
   const handleMouseEnter = (label: string) => {
     clearTimeout(timeoutRef.current);
     setActiveMenu(label);
@@ -140,13 +164,27 @@ export default function Navbar() {
             </button>
 
             {/* Logo */}
-            <Link href="/" className="flex flex-col items-center leading-none">
-              <span className="font-heading text-2xl md:text-3xl font-light tracking-[0.4em] text-daisy-900 uppercase">
-                Daisy
-              </span>
-              <span className="font-body text-[9px] tracking-[0.35em] text-daisy-400 uppercase mt-0.5">
-                Elegance That Blooms
-              </span>
+            <Link href="/" className="flex items-center gap-3 leading-none group">
+              {(logoType === 'image' || logoType === 'both') && logoUrl && (
+                <Image
+                  src={logoUrl}
+                  alt={companyName}
+                  width={140}
+                  height={48}
+                  className="h-10 md:h-12 w-auto object-contain"
+                  priority
+                />
+              )}
+              {(logoType === 'text' || logoType === 'both') && (
+                <div className="flex flex-col justify-center">
+                  <span className="font-heading text-lg md:text-xl tracking-[0.3em] uppercase text-daisy-900 font-bold transition-colors group-hover:text-daisy-600">
+                    {companyName}
+                  </span>
+                  <span className="font-body text-[8px] md:text-[9px] tracking-[0.2em] text-daisy-500 uppercase mt-0.5 whitespace-nowrap">
+                    {tagline}
+                  </span>
+                </div>
+              )}
             </Link>
 
             {/* Desktop Nav */}
@@ -197,7 +235,7 @@ export default function Navbar() {
                 <Heart size={20} />
               </Link>
 
-               <Link href="/profile" className="hidden md:flex p-2 text-daisy-800 hover:text-daisy-600 transition-colors" aria-label="Account">
+              <Link href="/profile" className="hidden md:flex p-2 text-daisy-800 hover:text-daisy-600 transition-colors" aria-label="Account">
                 <User size={20} />
               </Link>
 
@@ -235,7 +273,7 @@ export default function Navbar() {
             >
               <div className="max-w-[1400px] mx-auto px-8 py-10">
                 {NAV_ITEMS.filter((i) => i.label === activeMenu && i.mega).map((item) => (
-                  <div key={item.label} className="grid grid-cols-3 gap-12">
+                  <div key={item.label} className="grid grid-cols-4 gap-10">
                     {item.columns?.map((col) => (
                       <div key={col.title}>
                         <h3 className="font-body text-[10px] tracking-[0.3em] uppercase text-daisy-400 mb-5 font-medium">
@@ -257,6 +295,22 @@ export default function Navbar() {
                         </ul>
                       </div>
                     ))}
+                    {/* View All Promo Column */}
+                    <div className="bg-cream/40 p-6 flex flex-col justify-between border border-nude-100/60 rounded-sm">
+                      <div>
+                        <h4 className="font-heading text-lg font-light text-daisy-900 mb-2">Our Entire Collection</h4>
+                        <p className="font-body text-xs text-daisy-500 leading-relaxed mb-4">
+                          Explore our full selection of premium handcrafted jewellery, designer sarees, and luxury gifts.
+                        </p>
+                      </div>
+                      <Link
+                        href="/collections"
+                        onClick={() => setActiveMenu(null)}
+                        className="btn-primary w-full text-center py-3 text-xs tracking-wider uppercase font-semibold block shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        View All Products
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -289,17 +343,112 @@ export default function Navbar() {
               </div>
 
               <nav className="flex-1 overflow-y-auto py-4">
-                {itemsToRender.map((item) => (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    target={(item as any).open_in_new_tab ? '_blank' : undefined}
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center justify-between px-6 py-4 font-body text-sm text-daisy-800 hover:bg-nude-100 transition-colors border-b border-nude-100"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                {itemsToRender.map((item) => {
+                  const isShopCategory = item.label.toLowerCase() === 'shop by category' || item.label.toLowerCase() === 'collections';
+                  if (isShopCategory) {
+                    const isOpen = expandedMobileMenu === item.label;
+                    return (
+                      <div key={item.label} className="border-b border-nude-100">
+                        <button
+                          onClick={() => setExpandedMobileMenu(isOpen ? null : item.label)}
+                          className="w-full flex items-center justify-between px-6 py-4 font-body text-sm text-daisy-800 hover:bg-nude-100 transition-colors"
+                        >
+                          <span>{item.label}</span>
+                          <ChevronDown size={14} className={`transition-transform duration-250 ${isOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        <AnimatePresence>
+                          {isOpen && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="overflow-hidden bg-cream/30 pl-4 pr-6 py-2 border-t border-nude-100"
+                            >
+                              {/* Prominent View All Button */}
+                              <Link
+                                href="/collections"
+                                onClick={() => { setMobileOpen(false); setExpandedMobileMenu(null); }}
+                                className="block mx-2 my-2 py-3 px-4 text-center font-body text-xs font-bold uppercase tracking-wider bg-daisy-800 text-cream rounded-sm shadow-sm hover:bg-daisy-900 transition-all"
+                              >
+                                View All Products
+                              </Link>
+
+                              <div className="grid grid-cols-2 gap-1 mt-2">
+                                <Link
+                                  href="/collections/necklaces"
+                                  onClick={() => { setMobileOpen(false); setExpandedMobileMenu(null); }}
+                                  className="p-2.5 text-left font-body text-xs text-daisy-700 hover:bg-nude-100 rounded-sm transition-colors"
+                                >
+                                  Necklaces
+                                </Link>
+                                <Link
+                                  href="/collections/earrings"
+                                  onClick={() => { setMobileOpen(false); setExpandedMobileMenu(null); }}
+                                  className="p-2.5 text-left font-body text-xs text-daisy-700 hover:bg-nude-100 rounded-sm transition-colors"
+                                >
+                                  Earrings
+                                </Link>
+                                <Link
+                                  href="/collections/rings"
+                                  onClick={() => { setMobileOpen(false); setExpandedMobileMenu(null); }}
+                                  className="p-2.5 text-left font-body text-xs text-daisy-700 hover:bg-nude-100 rounded-sm transition-colors"
+                                >
+                                  Rings
+                                </Link>
+                                <Link
+                                  href="/collections/bangles"
+                                  onClick={() => { setMobileOpen(false); setExpandedMobileMenu(null); }}
+                                  className="p-2.5 text-left font-body text-xs text-daisy-700 hover:bg-nude-100 rounded-sm transition-colors"
+                                >
+                                  Bangles
+                                </Link>
+                                <Link
+                                  href="/collections/bracelets"
+                                  onClick={() => { setMobileOpen(false); setExpandedMobileMenu(null); }}
+                                  className="p-2.5 text-left font-body text-xs text-daisy-700 hover:bg-nude-100 rounded-sm transition-colors"
+                                >
+                                  Bracelets
+                                </Link>
+                                <Link
+                                  href="/collections/anklets"
+                                  onClick={() => { setMobileOpen(false); setExpandedMobileMenu(null); }}
+                                  className="p-2.5 text-left font-body text-xs text-daisy-700 hover:bg-nude-100 rounded-sm transition-colors"
+                                >
+                                  Anklets
+                                </Link>
+                                <Link
+                                  href="/collections/sarees"
+                                  onClick={() => { setMobileOpen(false); setExpandedMobileMenu(null); }}
+                                  className="p-2.5 text-left font-body text-xs text-daisy-700 hover:bg-nude-100 rounded-sm transition-colors"
+                                >
+                                  Sarees
+                                </Link>
+                                <Link
+                                  href="/collections/gifts"
+                                  onClick={() => { setMobileOpen(false); setExpandedMobileMenu(null); }}
+                                  className="p-2.5 text-left font-body text-xs text-daisy-700 hover:bg-nude-100 rounded-sm transition-colors"
+                                >
+                                  Gifts
+                                </Link>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  }
+                  return (
+                    <Link
+                      key={item.label}
+                      href={item.href}
+                      target={(item as any).open_in_new_tab ? '_blank' : undefined}
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center justify-between px-6 py-4 font-body text-sm text-daisy-800 hover:bg-nude-100 transition-colors border-b border-nude-100"
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
               </nav>
 
               <div className="p-5 border-t border-nude-200 space-y-3">

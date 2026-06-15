@@ -75,8 +75,15 @@ export default function CategoryPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [showInStock, setShowInStock] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
+  const [limit, setLimit] = useState(24);
+  const [hasMore, setHasMore] = useState(false);
 
   const categoryInfo = CATEGORY_METADATA[category] || { title: category?.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Category', description: 'Browse products' };
+
+  // Reset limit when category, filters, or sort change
+  useEffect(() => {
+    setLimit(24);
+  }, [category, sort, priceRange, showInStock]);
 
   useEffect(() => {
     async function fetchProducts() {
@@ -104,6 +111,7 @@ export default function CategoryPage() {
           } else {
             // Category slug not found in DB — show empty
             setProducts([]);
+            setHasMore(false);
             setLoading(false);
             return;
           }
@@ -123,18 +131,31 @@ export default function CategoryPage() {
           query = query.order(col, { ascending: dir === 'asc' });
         }
 
-        const { data } = await query.limit(48);
-        setProducts((data as Product[]) || []);
+        // Fetch limit + 1 to check if hasMore
+        const { data } = await query.limit(limit + 1);
+        if (data && data.length > 0) {
+          if (data.length > limit) {
+            setProducts(data.slice(0, limit) as Product[]);
+            setHasMore(true);
+          } else {
+            setProducts(data as Product[]);
+            setHasMore(false);
+          }
+        } else {
+          setProducts([]);
+          setHasMore(false);
+        }
       } catch (error) {
         console.error('Error fetching products:', error);
         setProducts([]);
+        setHasMore(false);
       } finally {
         setLoading(false);
       }
     }
 
     fetchProducts();
-  }, [category, sort, priceRange, showInStock]);
+  }, [category, sort, priceRange, showInStock, limit]);
 
 
   return (
@@ -260,11 +281,24 @@ export default function CategoryPage() {
               <p className="font-body text-sm text-daisy-400">Try adjusting your filters</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {products.map((product, i) => (
-                <ProductCard key={product.id || i} product={product} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                {products.map((product, i) => (
+                  <ProductCard key={product.id || i} product={product} />
+                ))}
+              </div>
+
+              {hasMore && (
+                <div className="flex justify-center mt-12">
+                  <button
+                    onClick={() => setLimit(prev => prev + 24)}
+                    className="btn-outline"
+                  >
+                    Load More
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>

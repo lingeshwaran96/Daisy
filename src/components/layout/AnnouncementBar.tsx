@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { useStore } from '@/lib/store';
 
 const FALLBACK = [
   '🌸 USE CODE: WELCOME10 — 10% off your first order',
@@ -14,22 +14,16 @@ const FALLBACK = [
 
 export default function AnnouncementBar() {
   const [visible, setVisible] = useState(true);
-  const [announcements, setAnnouncements] = useState<string[]>(FALLBACK);
+  const { siteSettings, settingsFetched } = useStore();
 
-  useEffect(() => {
-    supabase
-      .from('site_settings')
-      .select('value')
-      .eq('key', 'announcement_text')
-      .single()
-      .then(({ data }) => {
-        if (data?.value) {
-          // Support multiple lines separated by | character
-          const items = data.value.split('|').map((s: string) => s.trim()).filter(Boolean);
-          if (items.length > 0) setAnnouncements(items);
-        }
-      });
-  }, []);
+  // Derive announcements from cached settings — no DB call needed
+  const announcements: string[] = (() => {
+    if (!settingsFetched) return FALLBACK;
+    const raw = siteSettings['announcement_text'];
+    if (!raw) return FALLBACK;
+    const items = raw.split('|').map((s) => s.trim()).filter(Boolean);
+    return items.length > 0 ? items : FALLBACK;
+  })();
 
   if (!visible) return null;
 

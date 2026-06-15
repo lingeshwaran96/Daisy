@@ -4,6 +4,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// ---- Site Settings Cache Type ----
+export type SiteSettings = Record<string, string>;
+
 // ---- Types ----
 export type CartItem = {
   id: string;
@@ -54,6 +57,11 @@ type Store = {
   whatsAppTotal: number;
   setWhatsAppModalOpen: (open: boolean) => void;
   openWhatsAppModal: (items: any[], total: number) => void;
+
+  // Site settings cache
+  siteSettings: SiteSettings;
+  settingsFetched: boolean;
+  setSiteSettings: (settings: SiteSettings) => void;
 };
 
 export const useStore = create<Store>()(
@@ -69,6 +77,11 @@ export const useStore = create<Store>()(
         whatsAppOrderItems: items, 
         whatsAppTotal: total 
       }),
+
+      // ---- Site Settings Cache ----
+      siteSettings: {},
+      settingsFetched: false,
+      setSiteSettings: (settings) => set({ siteSettings: settings, settingsFetched: true }),
 
       // ---- Cart ----
       items: [],

@@ -35,6 +35,13 @@ export default function SearchContent() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [showInStock, setShowInStock] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
+  const [limit, setLimit] = useState(24);
+  const [hasMore, setHasMore] = useState(false);
+
+  // Reset limit when query, filters, or sort change
+  useEffect(() => {
+    setLimit(24);
+  }, [query, sort, priceRange, showInStock]);
 
   useEffect(() => {
     async function fetchProducts() {
@@ -62,16 +69,25 @@ export default function SearchContent() {
           searchQuery = searchQuery.order(col, { ascending: dir === 'asc' });
         }
 
-        const { data } = await searchQuery.limit(24);
+        // Fetch limit + 1 to see if we have more
+        const { data } = await searchQuery.limit(limit + 1);
 
         if (data && data.length > 0) {
-          setProducts(data as Product[]);
+          if (data.length > limit) {
+            setProducts(data.slice(0, limit) as Product[]);
+            setHasMore(true);
+          } else {
+            setProducts(data as Product[]);
+            setHasMore(false);
+          }
         } else {
           setProducts([]);
+          setHasMore(false);
         }
       } catch (error) {
         console.error('Error fetching products:', error);
         setProducts([]);
+        setHasMore(false);
       } finally {
         setLoading(false);
       }
@@ -81,9 +97,10 @@ export default function SearchContent() {
       fetchProducts();
     } else {
       setProducts([]);
+      setHasMore(false);
       setLoading(false);
     }
-  }, [query, sort, priceRange, showInStock]);
+  }, [query, sort, priceRange, showInStock, limit]);
 
   useEffect(() => {
     if (query) {
@@ -216,11 +233,24 @@ export default function SearchContent() {
                 <p className="font-body text-sm text-daisy-400">Try adjusting your search or filters</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                {products.map((product, i) => (
-                  <ProductCard key={product.id || i} product={product} />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                  {products.map((product, i) => (
+                    <ProductCard key={product.id || i} product={product} />
+                  ))}
+                </div>
+
+                {hasMore && (
+                  <div className="flex justify-center mt-12">
+                    <button
+                      onClick={() => setLimit(prev => prev + 24)}
+                      className="btn-outline"
+                    >
+                      Load More
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </>
         ) : (

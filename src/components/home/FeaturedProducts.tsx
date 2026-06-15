@@ -59,7 +59,7 @@ export default function FeaturedProducts() {
         .from('products')
         .select('*')
         .eq('is_active', true)
-        .limit(8);
+        .limit(12);
 
       let finalQuery = query;
       if (activeTab === 'New Arrivals') finalQuery = finalQuery.eq('is_new_arrival', true) as typeof query;
@@ -71,11 +71,11 @@ export default function FeaturedProducts() {
         // Only use DB products that have images, fill rest with mocks
         const dbProducts = (data as any[]).filter(p => p.images && p.images.length > 0 && p.images[0]);
         if (dbProducts.length >= 4) {
-          setProducts(dbProducts.slice(0, 8));
+          setProducts(dbProducts.slice(0, 12));
         } else {
           // Merge: DB products with images first, then fill with mocks
           const mockFill = MOCK_PRODUCTS.filter(m => !dbProducts.find(d => d.id === m.id));
-          setProducts([...dbProducts, ...mockFill].slice(0, 8));
+          setProducts([...dbProducts, ...mockFill].slice(0, 12));
         }
       } else {
         setProducts(MOCK_PRODUCTS);
@@ -114,7 +114,7 @@ export default function FeaturedProducts() {
         {/* Product Grid */}
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
+            {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="skeleton aspect-[3/4]" />
             ))}
           </div>

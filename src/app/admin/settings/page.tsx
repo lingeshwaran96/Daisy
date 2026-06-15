@@ -40,7 +40,23 @@ type SetupStatus = 'idle' | 'running' | 'done' | 'error';
 
 export default function AdminSettingsPage() {
   // Tabs State
-  const [activeTab, setActiveTab] = useState<'general' | 'announcements' | 'badges' | 'story' | 'whatsapp' | 'setup'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'announcements' | 'badges' | 'story' | 'whatsapp' | 'product_tabs' | 'branding' | 'setup'>('general');
+
+  // Branding / Logo State
+  const [logoUrl, setLogoUrl] = useState('/images/logo.png');
+  const [logoType, setLogoType] = useState('image');
+  const [companyName, setCompanyName] = useState('DAISY');
+  const [tagline, setTagline] = useState('Elegance That Blooms');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [savingLogo, setSavingLogo] = useState(false);
+  const logoFileRef = useRef<HTMLInputElement>(null);
+
+  // Product Accordion Tabs State
+  const [shippingReturnsEnabled, setShippingReturnsEnabled] = useState(true);
+  const [shippingReturnsText, setShippingReturnsText] = useState('Free shipping on orders above ₹1000. Standard delivery 3-7 business days. Express delivery available. 7-day hassle-free returns. Contact us via WhatsApp for return requests.');
+  const [careInstructionsEnabled, setCareInstructionsEnabled] = useState(true);
+  const [careInstructionsText, setCareInstructionsText] = useState('Store in the provided velvet pouch. Avoid contact with perfumes, water, and chemicals. Clean with a soft silver cloth. Do not use harsh cleaners.');
+  const [savingProductTabs, setSavingProductTabs] = useState(false);
 
   // Database Setup Statuses
   const [catStatus, setCatStatus] = useState<SetupStatus>('idle');
@@ -172,7 +188,7 @@ export default function AdminSettingsPage() {
           ]);
         }
 
-        // Populate Brand Story state
+        // Populate Brand Story state and Product Tabs state
         data.forEach(r => {
           if (r.key === 'story_subtitle') setStorySubtitle(r.value);
           else if (r.key === 'story_title_main') setStoryTitleMain(r.value);
@@ -191,6 +207,14 @@ export default function AdminSettingsPage() {
           else if (r.key === 'story_metric3_text') setStoryMetric3Text(r.value);
           else if (r.key === 'story_button_text') setStoryButtonText(r.value);
           else if (r.key === 'story_button_link') setStoryButtonLink(r.value);
+          else if (r.key === 'product_shipping_returns_enabled') setShippingReturnsEnabled(r.value !== 'false');
+          else if (r.key === 'product_shipping_returns_text') setShippingReturnsText(r.value);
+          else if (r.key === 'product_care_instructions_enabled') setCareInstructionsEnabled(r.value !== 'false');
+          else if (r.key === 'product_care_instructions_text') setCareInstructionsText(r.value);
+          else if (r.key === 'logo_url') setLogoUrl(r.value);
+          else if (r.key === 'logo_type') setLogoType(r.value || 'image');
+          else if (r.key === 'company_name') setCompanyName(r.value || 'DAISY');
+          else if (r.key === 'tagline') setTagline(r.value || 'Elegance That Blooms');
         });
       }
     } catch (err) {
@@ -274,6 +298,77 @@ export default function AdminSettingsPage() {
     }
   };
 
+  // Upload logo to Supabase storage
+  const handleLogoUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.type.startsWith('image/')) { toast.error('Please select an image file'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('File too large (max 5 MB)'); return; }
+
+    setUploadingLogo(true);
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const fileName = `branding/logo-${Date.now()}.${ext}`;
+
+      const { data, error } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file, { cacheControl: '3600', upsert: true });
+
+      if (error) {
+        toast.error('Upload failed: ' + error.message);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(data.path);
+      if (urlData?.publicUrl) {
+        setLogoUrl(urlData.publicUrl);
+        toast.success('Logo uploaded! Click "Save Logo" to apply.');
+      }
+    } catch (err: any) {
+      toast.error('Upload failed: ' + err.message);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  // Save logo URL to site_settings
+  const saveLogo = async () => {
+    setSavingLogo(true);
+    try {
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert([
+          { key: 'logo_url', value: logoUrl },
+          { key: 'logo_type', value: logoType },
+          { key: 'company_name', value: companyName },
+          { key: 'tagline', value: tagline }
+        ], { onConflict: 'key' });
+      if (error) throw error;
+      toast.success('Branding & logo settings saved! Refresh the site to see changes.');
+    } catch (err: any) {
+      toast.error('Failed to save branding settings: ' + err.message);
+    } finally {
+      setSavingLogo(false);
+    }
+  };
+
+  // Reset logo to default
+  const resetLogoToDefault = async () => {
+    setLogoUrl('/images/logo.png');
+    setSavingLogo(true);
+    try {
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({ key: 'logo_url', value: '/images/logo.png' }, { onConflict: 'key' });
+      if (error) throw error;
+      toast.success('Logo reset to default.');
+    } catch (err: any) {
+      toast.error('Failed to reset: ' + err.message);
+    } finally {
+      setSavingLogo(false);
+    }
+  };
+
   // Save brand story settings
   const saveStorySettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -310,6 +405,32 @@ export default function AdminSettingsPage() {
       toast.error('Failed to save story settings: ' + err.message);
     } finally {
       setSavingStory(false);
+    }
+  };
+
+  // Save shipping settings to database
+  const saveProductTabsSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingProductTabs(true);
+    try {
+      const payload = [
+        { key: 'product_shipping_returns_enabled', value: shippingReturnsEnabled ? 'true' : 'false' },
+        { key: 'product_shipping_returns_text', value: shippingReturnsText },
+        { key: 'product_care_instructions_enabled', value: careInstructionsEnabled ? 'true' : 'false' },
+        { key: 'product_care_instructions_text', value: careInstructionsText }
+      ];
+
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert(payload, { onConflict: 'key' });
+
+      if (error) throw error;
+      toast.success('Product Tabs settings saved successfully! ✨');
+    } catch (err: any) {
+      console.error('Error saving product tabs settings:', err);
+      toast.error('Failed to save settings: ' + err.message);
+    } finally {
+      setSavingProductTabs(false);
     }
   };
 
@@ -608,14 +729,16 @@ export default function AdminSettingsPage() {
           { id: 'badges', label: 'Feature / Trust Badges' },
           { id: 'story', label: 'Brand Story' },
           { id: 'whatsapp', label: 'WhatsApp Contacts' },
+          { id: 'product_tabs', label: 'Product Tabs' },
+          { id: 'branding', label: '🎨 Branding & Logo' },
           { id: 'setup', label: 'Database Setup' },
         ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={`font-body text-sm px-6 py-3 border-b-2 transition-all font-semibold ${activeTab === tab.id
-                ? 'border-daisy-800 text-daisy-900'
-                : 'border-transparent text-daisy-400 hover:text-daisy-700'
+              ? 'border-daisy-800 text-daisy-900'
+              : 'border-transparent text-daisy-400 hover:text-daisy-700'
               }`}
           >
             {tab.label}
@@ -1127,8 +1250,8 @@ export default function AdminSettingsPage() {
                             type="button"
                             onClick={() => setBadgeIcon(ico.name)}
                             className={`flex flex-col items-center justify-center py-4 border text-center transition-all ${active
-                                ? 'border-daisy-800 bg-daisy-800 text-cream'
-                                : 'border-nude-200 text-daisy-600 hover:border-daisy-400 hover:bg-nude-50/20'
+                              ? 'border-daisy-800 bg-daisy-800 text-cream'
+                              : 'border-nude-200 text-daisy-600 hover:border-daisy-400 hover:bg-nude-50/20'
                               }`}
                           >
                             <TargetIcon size={20} className={active ? 'text-cream' : 'text-daisy-700'} />
@@ -1717,6 +1840,238 @@ export default function AdminSettingsPage() {
                     Cancel
                   </button>
                 )}
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* TAB CONTENT: PRODUCT ACCORDION TABS */}
+      {activeTab === 'product_tabs' && (
+        <form onSubmit={saveProductTabsSettings} className="space-y-8 max-w-3xl">
+          <section className="bg-white border border-nude-200 p-6 shadow-sm">
+            <h2 className="font-heading text-xl text-daisy-800 mb-2">Shipping & Returns Accordion</h2>
+            <p className="font-body text-xs text-daisy-400 mb-6 font-light">Toggle visibility and customize content for the Shipping & Returns tab on product pages.</p>
+
+            <div className="space-y-6">
+              <div className="border border-nude-200 p-5 rounded-sm flex items-center justify-between bg-nude-50/30">
+                <div className="max-w-[75%] pr-4">
+                  <h3 className="font-body text-sm font-semibold text-daisy-900">Show Shipping & Returns Tab</h3>
+                  <p className="font-body text-xs text-daisy-500 mt-1 leading-relaxed">
+                    Toggle this switch to temporarily show or hide the Shipping & Returns information tab on all product detail pages.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShippingReturnsEnabled(!shippingReturnsEnabled)}
+                  className={`w-14 h-8 rounded-full transition-colors flex items-center p-1 cursor-pointer relative focus:outline-none ${shippingReturnsEnabled ? 'bg-daisy-800 justify-end' : 'bg-nude-200 justify-start'}`}
+                >
+                  <motion.div
+                    layout
+                    className="w-6 h-6 bg-cream rounded-full shadow-sm"
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  />
+                </button>
+              </div>
+
+              <div>
+                <label className="block font-body text-xs tracking-wider uppercase text-daisy-500 mb-2">Tab Content (HTML supported)</label>
+                <textarea
+                  rows={4}
+                  value={shippingReturnsText}
+                  onChange={(e) => setShippingReturnsText(e.target.value)}
+                  className="w-full border border-nude-200 px-4 py-3 font-body text-sm outline-none focus:border-daisy-400 bg-white"
+                  placeholder="Enter Shipping & Returns text..."
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="bg-white border border-nude-200 p-6 shadow-sm">
+            <h2 className="font-heading text-xl text-daisy-800 mb-2">Care Instructions Accordion</h2>
+            <p className="font-body text-xs text-daisy-400 mb-6 font-light">Toggle visibility and customize content for the Care Instructions tab on product pages.</p>
+
+            <div className="space-y-6">
+              <div className="border border-nude-200 p-5 rounded-sm flex items-center justify-between bg-nude-50/30">
+                <div className="max-w-[75%] pr-4">
+                  <h3 className="font-body text-sm font-semibold text-daisy-900">Show Care Instructions Tab</h3>
+                  <p className="font-body text-xs text-daisy-500 mt-1 leading-relaxed">
+                    Toggle this switch to temporarily show or hide the Care Instructions tab on all product detail pages.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCareInstructionsEnabled(!careInstructionsEnabled)}
+                  className={`w-14 h-8 rounded-full transition-colors flex items-center p-1 cursor-pointer relative focus:outline-none ${careInstructionsEnabled ? 'bg-daisy-800 justify-end' : 'bg-nude-200 justify-start'}`}
+                >
+                  <motion.div
+                    layout
+                    className="w-6 h-6 bg-cream rounded-full shadow-sm"
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  />
+                </button>
+              </div>
+
+              <div>
+                <label className="block font-body text-xs tracking-wider uppercase text-daisy-500 mb-2">Tab Content (HTML supported)</label>
+                <textarea
+                  rows={4}
+                  value={careInstructionsText}
+                  onChange={(e) => setCareInstructionsText(e.target.value)}
+                  className="w-full border border-nude-200 px-4 py-3 font-body text-sm outline-none focus:border-daisy-400 bg-white"
+                  placeholder="Enter Care Instructions text..."
+                />
+              </div>
+            </div>
+          </section>
+
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={savingProductTabs}
+              className="btn-primary py-3 px-6 font-body text-xs font-semibold tracking-widest uppercase flex items-center gap-2"
+            >
+              {savingProductTabs ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Saving Settings...
+                </>
+              ) : (
+                'Save Product Tabs Settings'
+              )}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* TAB CONTENT: BRANDING & LOGO */}
+      {activeTab === 'branding' && (
+        <div className="space-y-8 max-w-3xl">
+          <section className="bg-white border border-nude-200 p-6 shadow-sm">
+            <h2 className="font-heading text-xl text-daisy-800 mb-2">Website Logo Settings</h2>
+            <p className="font-body text-xs text-daisy-400 mb-6 font-light">Upload a custom image logo to display across your store header, footer, and admin pages.</p>
+
+            <div className="space-y-6">
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-6 p-5 border border-nude-200 rounded-sm bg-nude-50/20">
+                <div className="flex-1">
+                  <h3 className="font-body text-sm font-semibold text-daisy-900 mb-1">Current Logo Preview</h3>
+                  <p className="font-body text-xs text-daisy-500 mb-4">
+                    Your current active logo image. Note: it is recommended to use a transparent PNG or SVG logo.
+                  </p>
+                  
+                  <div className="bg-daisy-950 p-6 rounded-sm inline-flex items-center justify-center min-w-[200px] border border-nude-100">
+                    <img 
+                      src={logoUrl} 
+                      alt="Logo Preview" 
+                      className="max-h-12 w-auto object-contain max-w-[250px]"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/images/logo.png';
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 w-full md:w-auto">
+                  <input
+                    type="file"
+                    ref={logoFileRef}
+                    onChange={(e) => handleLogoUpload(e.target.files)}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    disabled={uploadingLogo || savingLogo}
+                    onClick={() => logoFileRef.current?.click()}
+                    className="btn-outline py-2.5 px-4 font-body text-xs tracking-wider uppercase font-semibold flex items-center justify-center gap-2"
+                  >
+                    {uploadingLogo ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={14} />
+                        Upload New Logo
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={uploadingLogo || savingLogo}
+                    onClick={resetLogoToDefault}
+                    className="btn-outline py-2.5 px-4 font-body text-xs tracking-wider uppercase font-semibold text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    Reset to Default
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-body text-xs tracking-wider uppercase text-daisy-500 mb-2">Logo URL (Direct Path)</label>
+                <input
+                  type="text"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  className="w-full border border-nude-200 px-4 py-3 font-body text-sm outline-none focus:border-daisy-400 bg-white font-mono text-xs"
+                  placeholder="Enter logo image URL..."
+                />
+              </div>
+
+              <div>
+                <label className="block font-body text-xs tracking-wider uppercase text-daisy-500 mb-2">Logo Display Type</label>
+                <select
+                  value={logoType}
+                  onChange={(e) => setLogoType(e.target.value)}
+                  className="w-full border border-nude-200 px-4 py-3 font-body text-sm outline-none focus:border-daisy-400 bg-white"
+                >
+                  <option value="image">Show Logo Image Only</option>
+                  <option value="text">Show Logo Text & Tagline Only</option>
+                  <option value="both">Show Both (Image & Text)</option>
+                </select>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block font-body text-xs tracking-wider uppercase text-daisy-500 mb-2">Company Name (Text Logo)</label>
+                  <input
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    className="w-full border border-nude-200 px-4 py-3 font-body text-sm outline-none focus:border-daisy-400 bg-white font-medium"
+                    placeholder="e.g. DAISY"
+                  />
+                </div>
+                <div>
+                  <label className="block font-body text-xs tracking-wider uppercase text-daisy-500 mb-2">Tagline</label>
+                  <input
+                    type="text"
+                    value={tagline}
+                    onChange={(e) => setTagline(e.target.value)}
+                    className="w-full border border-nude-200 px-4 py-3 font-body text-sm outline-none focus:border-daisy-400 bg-white"
+                    placeholder="e.g. Elegance That Blooms"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={saveLogo}
+                  disabled={savingLogo || uploadingLogo}
+                  className="btn-primary py-3 px-6 font-body text-xs font-semibold tracking-widest uppercase flex items-center gap-2"
+                >
+                  {savingLogo ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Saving Settings...
+                    </>
+                  ) : (
+                    'Save Branding Settings'
+                  )}
+                </button>
               </div>
             </div>
           </section>

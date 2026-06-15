@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import { Toaster } from 'react-hot-toast';
 import '@/styles/globals.css';
 import MetaPixel from '@/components/MetaPixel';
+import SiteSettingsLoader from '@/components/layout/SiteSettingsLoader';
 
 export const metadata: Metadata = {
   title: { default: 'DAISY – Elegance That Blooms', template: '%s | DAISY' },
@@ -44,6 +45,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             },
           }}
         />
+        {/* Load ALL site settings once here — components read from Zustand cache */}
+        <SiteSettingsLoader />
         <MetaPixel />
         {children}
       </body>

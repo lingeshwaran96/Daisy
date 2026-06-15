@@ -73,6 +73,8 @@ const PRICE_RANGES = [
 ];
 
 export default function CollectionsPage() {
+  const [categories, setCategories] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [products, setProducts] = useState<any[]>(MOCK);
   const [loading, setLoading] = useState(false);
   const [sort, setSort] = useState('created_at-desc');
@@ -80,11 +82,39 @@ export default function CollectionsPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [showInStock, setShowInStock] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
+  const [limit, setLimit] = useState(24);
+  const [hasMore, setHasMore] = useState(false);
+
+  // Reset limit when filters, sort or category change
+  useEffect(() => {
+    setLimit(24);
+  }, [sort, priceRange, showInStock, selectedCategory]);
+
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const { data } = await supabase
+          .from('categories')
+          .select('id, name, slug')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+        if (data) {
+          setCategories(data);
+        }
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+      }
+    }
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     async function fetchProducts() {
       setLoading(true);
       let query = supabase.from('products').select('*').eq('is_active', true);
+      if (selectedCategory) {
+        query = query.eq('category_id', selectedCategory);
+      }
       if (showInStock) query = query.gt('stock', 0);
       if (priceRange) {
         query = query.gte('price', priceRange.min);
@@ -95,13 +125,28 @@ export default function CollectionsPage() {
         const [col, dir] = sort.split('-');
         query = query.order(col, { ascending: dir === 'asc' });
       }
-      const { data } = await query.limit(24);
-      if (data && data.length > 0) setProducts(data as Product[]);
-      else setProducts(MOCK);
+      
+      // Fetch limit + 1 to see if we have more
+      const { data } = await query.limit(limit + 1);
+      if (data && data.length > 0) {
+        if (data.length > limit) {
+          setProducts(data.slice(0, limit) as Product[]);
+          setHasMore(true);
+        } else {
+          setProducts(data as Product[]);
+          setHasMore(false);
+        }
+      } else {
+        const filteredMock = selectedCategory 
+          ? MOCK.filter(p => p.category_id === selectedCategory) 
+          : MOCK;
+        setProducts(filteredMock);
+        setHasMore(false);
+      }
       setLoading(false);
     }
     fetchProducts();
-  }, [sort, priceRange, showInStock]);
+  }, [sort, priceRange, showInStock, limit, selectedCategory]);
 
   return (
     <>
@@ -119,6 +164,35 @@ export default function CollectionsPage() {
         </div>
 
         <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-8">
+          {/* Categories Pill Row */}
+          {categories.length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-6 border-b border-nude-100 scrollbar-none -mx-4 px-4 md:mx-0 md:px-0">
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className={`px-5 py-2.5 rounded-full font-body text-[11px] tracking-wider uppercase font-semibold transition-all duration-200 ${
+                  selectedCategory === null
+                    ? 'bg-daisy-800 text-cream border border-daisy-800 shadow-sm'
+                    : 'bg-white text-daisy-700 border border-nude-200 hover:border-daisy-400'
+                }`}
+              >
+                All Collections
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-5 py-2.5 rounded-full font-body text-[11px] tracking-wider uppercase font-semibold transition-all duration-200 flex-shrink-0 ${
+                    selectedCategory === cat.id
+                      ? 'bg-daisy-800 text-cream border border-daisy-800 shadow-sm'
+                      : 'bg-white text-daisy-700 border border-nude-200 hover:border-daisy-400'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Filter / Sort Bar */}
           <div className="flex items-center justify-between mb-8 gap-4">
             <button
@@ -226,11 +300,24 @@ export default function CollectionsPage() {
               <p className="font-body text-sm text-daisy-400">Try adjusting your filters</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {products.map((product, i) => (
-                <ProductCard key={product.id} product={product} index={i} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                {products.map((product, i) => (
+                  <ProductCard key={product.id} product={product} index={i} />
+                ))}
+              </div>
+
+              {hasMore && (
+                <div className="flex justify-center mt-12">
+                  <button
+                    onClick={() => setLimit(prev => prev + 24)}
+                    className="btn-outline"
+                  >
+                    Load More
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>

@@ -3,9 +3,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, Package, ShoppingCart, Users, Tag, Image, Instagram,
+  LayoutDashboard, Package, ShoppingCart, Users, Tag, Image as ImageIcon, Instagram,
   Percent, MessageSquare, BarChart3, LogOut, Menu, X, ChevronRight, Settings,
   Star, Mail, Layout, Navigation, FileText, Search, UserCircle, Globe, Printer,
   ClipboardCheck,
@@ -20,7 +21,7 @@ const SIDEBAR_LINKS = [
   { label: 'Orders', href: '/admin/orders', Icon: ShoppingCart },
   { label: 'Pending Orders', href: '/admin/pending-orders', Icon: ClipboardCheck },
   { label: 'Users', href: '/admin/users', Icon: Users },
-  { label: 'Banners', href: '/admin/banners', Icon: Image },
+  { label: 'Banners', href: '/admin/banners', Icon: ImageIcon },
   { label: 'Instagram', href: '/admin/instagram', Icon: Instagram },
   { label: 'Testimonials', href: '/admin/testimonials', Icon: Star },
   { label: 'Reviews', href: '/admin/reviews', Icon: MessageSquare },
@@ -41,6 +42,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [checking, setChecking] = useState(true);
   const [adminName, setAdminName] = useState('Admin');
+  const [logoUrl, setLogoUrl] = useState('/images/logo.png');
+
+  useEffect(() => {
+    supabase
+      .from('site_settings')
+      .select('value')
+      .eq('key', 'logo_url')
+      .single()
+      .then(({ data }) => {
+        if (data?.value) setLogoUrl(data.value);
+      });
+  }, []);
 
   useEffect(() => {
     async function checkAdmin() {
@@ -70,9 +83,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-daisy-50">
+      <div className="min-h-screen flex items-center justify-center bg-daisy-950">
         <div className="text-center">
-          <span className="font-heading text-3xl text-daisy-300 tracking-widest">DAISY</span>
+          <Image src={logoUrl} alt="Daisy" width={120} height={40} className="h-10 w-auto object-contain invert opacity-60 mx-auto" />
           <div className="spinner text-daisy-400 mx-auto mt-4"/>
         </div>
       </div>
@@ -89,10 +102,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         fixed md:sticky top-0 left-0 h-screen w-64 bg-daisy-950 flex flex-col z-50 transition-transform duration-300
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
-        <div className="flex items-center justify-between px-6 py-6 border-b border-white/10">
-          <Link href="/admin" className="flex flex-col">
-            <span className="font-heading text-2xl text-cream tracking-[0.3em] uppercase">Daisy</span>
-            <span className="font-body text-[9px] text-cream/40 tracking-widest uppercase mt-0.5">Admin Panel</span>
+        <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
+          <Link href="/admin" className="flex items-center gap-2">
+            <Image
+              src={logoUrl}
+              alt="Daisy Admin"
+              width={100}
+              height={36}
+              className="h-8 w-auto object-contain invert"
+            />
+            <span className="font-body text-[9px] text-cream/40 tracking-widest uppercase border-l border-white/10 pl-2 ml-1">Admin</span>
           </Link>
           <button onClick={() => setSidebarOpen(false)} className="text-cream/40 md:hidden"><X size={18}/></button>
         </div>

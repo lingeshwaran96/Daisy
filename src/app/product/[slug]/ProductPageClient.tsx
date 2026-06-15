@@ -196,18 +196,22 @@ export default function ProductPageClient({ product: dbProduct, slug, related, r
   const [zoomed, setZoomed] = useState(false);
   const { addItem, isWishlisted, setCartOpen, openWhatsAppModal } = useStore();
   const [trustBadges, setTrustBadges] = useState<any[]>([]);
+  const [shippingReturnsEnabled, setShippingReturnsEnabled] = useState(true);
+  const [shippingReturnsText, setShippingReturnsText] = useState('Free shipping on orders above ₹1000. Standard delivery 3-7 business days. Express delivery available. 7-day hassle-free returns. Contact us via WhatsApp for return requests.');
+  const [careInstructionsEnabled, setCareInstructionsEnabled] = useState(true);
+  const [careInstructionsText, setCareInstructionsText] = useState('Store in the provided velvet pouch. Avoid contact with perfumes, water, and chemicals. Clean with a soft silver cloth. Do not use harsh cleaners.');
 
   useEffect(() => {
-    async function fetchBadges() {
+    async function fetchBadgesAndSettings() {
       try {
-        const { data } = await supabase
+        const { data: badgesData } = await supabase
           .from('trust_badges')
           .select('*')
           .order('sort_order', { ascending: true })
           .limit(3);
 
-        if (data && data.length > 0) {
-          setTrustBadges(data);
+        if (badgesData && badgesData.length > 0) {
+          setTrustBadges(badgesData);
         } else {
           setTrustBadges([
             { icon: 'Truck', title: 'Free Shipping', description: 'On orders above ₹1000' },
@@ -215,11 +219,35 @@ export default function ProductPageClient({ product: dbProduct, slug, related, r
             { icon: 'RefreshCw', title: '7-Day Returns', description: 'Hassle-free returns' },
           ]);
         }
+
+        const { data: settingsData } = await supabase
+          .from('site_settings')
+          .select('key, value')
+          .in('key', [
+            'product_shipping_returns_enabled',
+            'product_shipping_returns_text',
+            'product_care_instructions_enabled',
+            'product_care_instructions_text'
+          ]);
+
+        if (settingsData) {
+          const srEnabled = settingsData.find(s => s.key === 'product_shipping_returns_enabled');
+          if (srEnabled) setShippingReturnsEnabled(srEnabled.value !== 'false');
+
+          const srText = settingsData.find(s => s.key === 'product_shipping_returns_text');
+          if (srText) setShippingReturnsText(srText.value);
+
+          const ciEnabled = settingsData.find(s => s.key === 'product_care_instructions_enabled');
+          if (ciEnabled) setCareInstructionsEnabled(ciEnabled.value !== 'false');
+
+          const ciText = settingsData.find(s => s.key === 'product_care_instructions_text');
+          if (ciText) setCareInstructionsText(ciText.value);
+        }
       } catch (err) {
-        console.error('Error fetching trust badges:', err);
+        console.error('Error fetching settings/badges:', err);
       }
     }
-    fetchBadges();
+    fetchBadgesAndSettings();
   }, []);
 
   const price = product.offer_price || product.price;
@@ -300,8 +328,8 @@ export default function ProductPageClient({ product: dbProduct, slug, related, r
   const TABS = [
     { id: 'description', label: 'Description', content: product.description },
     { id: 'specifications', label: 'Specifications', content: null },
-    { id: 'shipping', label: 'Shipping & Returns', content: '<p>Free shipping on orders above ₹1000. Standard delivery 3-7 business days. Express delivery available. 7-day hassle-free returns. Contact us via WhatsApp for return requests.</p>' },
-    { id: 'care', label: 'Care Instructions', content: '<p>Store in the provided velvet pouch. Avoid contact with perfumes, water, and chemicals. Clean with a soft silver cloth. Do not use harsh cleaners.</p>' },
+    ...(shippingReturnsEnabled ? [{ id: 'shipping', label: 'Shipping & Returns', content: shippingReturnsText }] : []),
+    ...(careInstructionsEnabled ? [{ id: 'care', label: 'Care Instructions', content: careInstructionsText }] : []),
   ];
 
   return (
